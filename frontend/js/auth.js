@@ -28,6 +28,7 @@ const googleBtn        = document.getElementById('google-btn');
 const passwordStrengthBar = document.getElementById('password-strength-bar');
 
 let isSignUp = false;
+let explicitLoginAttempt = false;
 
 // ── Wire up UI interactions once DOM is ready ──
 window.addEventListener('DOMContentLoaded', () => {
@@ -136,6 +137,7 @@ if (authForm) {
     const displayName = document.getElementById('display-name')?.value.trim();
 
     try {
+      explicitLoginAttempt = true;
       if (isSignUp) {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         if (displayName) await cred.user.updateProfile({ displayName });
@@ -144,6 +146,7 @@ if (authForm) {
       }
       // onAuthStateChanged will handle the redirect
     } catch (err) {
+      explicitLoginAttempt = false;
       showError(formatError(err.code));
       setLoading(false);
     }
@@ -155,9 +158,11 @@ if (googleBtn) {
   googleBtn.addEventListener('click', async () => {
     hideError();
     try {
+      explicitLoginAttempt = true;
       const provider = new firebase.auth.GoogleAuthProvider();
       await auth.signInWithPopup(provider);
     } catch (err) {
+      explicitLoginAttempt = false;
       if (err.code !== 'auth/popup-closed-by-user') {
         showError(formatError(err.code));
       }
@@ -170,9 +175,11 @@ auth.onAuthStateChanged((user) => {
   const currentPage = window.location.pathname;
 
   if (user) {
-    // Signed in — go to chat from landing page (or legacy /login.html)
-    if (currentPage === '/' || currentPage === '/index.html' || currentPage === '/login.html') {
-      navigateTo('/chat.html');
+    // Only redirect to chat if the user explicitly signed in (not on passive session restore)
+    if (explicitLoginAttempt) {
+      if (currentPage === '/' || currentPage === '/index.html' || currentPage === '/login.html') {
+        navigateTo('/chat.html');
+      }
     }
   } else {
     // Signed out — redirect to home (modal will handle sign-in)

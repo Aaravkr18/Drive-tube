@@ -18,10 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('a[href^="/"]').forEach(link => {
     link.addEventListener('click', (e) => {
       const href = link.getAttribute('href');
-      // If link points to login, open the modal instead of navigating
+      // If link points to login, auto-navigate if already signed in, otherwise show modal
       if (href === '/login.html') {
         e.preventDefault();
-        openAuthModal();
+        if (typeof auth !== 'undefined' && auth.currentUser) {
+          landingNavigateTo('/chat.html');
+        } else {
+          openAuthModal();
+        }
         return;
       }
       if (href && !href.startsWith('#')) {
