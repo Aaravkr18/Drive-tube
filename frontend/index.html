@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#050508" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Synapse AI | Aura Assistant</title>
+    <meta name="description" content="Synapse AI: Experience the future of personal intelligence with Aura, your liquid-glass powered multi-LLM assistant." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="/css/landing.css" />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+
+    <!-- Page Transition Overlay -->
+    <div class="page-transition-overlay" id="page-overlay"></div>
+
+    <!-- Noise Texture Overlay -->
+    <div class="noise-overlay"></div>
+
+    <!-- Liquid Mesh Background -->
+    <div class="mesh-container">
+      <div class="mesh-blob blob-1"></div>
+      <div class="mesh-blob blob-2"></div>
+      <div class="mesh-blob blob-3"></div>
+      <div class="mesh-overlay"></div>
+    </div>
+
+    <div id="app">
+      <!-- Navigation -->
+      <nav class="navbar glass reveal">
+        <div class="logo">
+          <span class="logo-synapse">SYNAPSE</span><span class="logo-ai">AI</span>
+        </div>
+        <div class="nav-links">
+          <a href="#features" class="nav-link">Features</a>
+          <a href="#models" class="nav-link">Models</a>
+          <a href="/login.html" class="btn btn-primary glass-btn" id="nav-launch-btn">Launch Aura</a>
+        </div>
+      </nav>
+
+      <!-- Hero Section -->
+      <main class="hero">
+        <section class="hero-content">
+          <h1 class="hero-title reveal">Intelligent <span class="text-glow" id="typewriter-target">Synapse</span></h1>
+          <p class="hero-subtitle reveal">Unified intelligence through Aura. Toggle between the world's most powerful LLMs in a single, fluid interface.</p>
+          <div class="hero-actions reveal">
+            <a href="/login.html" class="btn btn-large btn-primary glass-btn-heavy" id="hero-start-btn">Start Conversing</a>
+            <a href="#models" class="btn btn-large btn-secondary glass-btn" id="hero-explore-btn">Explore Models</a>
+          </div>
+        </section>
+
+        <div class="aura-orb-container reveal">
+          <div class="aura-orb">
+            <div class="orb-inner"></div>
+            <div class="orb-glow"></div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Scroll Indicator -->
+      <div class="scroll-indicator" id="scroll-indicator">
+        <div class="scroll-indicator-dot"></div>
+      </div>
+
+      <!-- Features Section -->
+      <section id="features" class="features-grid">
+        <div class="feature-card glass reveal">
+          <div style="font-size: 2rem; color: #00dbe9; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">hub</span></div>
+          <h3>Multi-LLM Engine</h3>
+          <p>Switch between Aura 1, 2, and Coder models instantly.</p>
+        </div>
+        <div class="feature-card glass reveal">
+          <div style="font-size: 2rem; color: #dcb8ff; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">blur_on</span></div>
+          <h3>Liquid Glass UI</h3>
+          <p>A transcendent design language that feels alive.</p>
+        </div>
+        <div class="feature-card glass reveal">
+          <div style="font-size: 2rem; color: #4caf50; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">psychology</span></div>
+          <h3>Aura Intelligence</h3>
+          <p>A personal assistant that adapts to your workflow.</p>
+        </div>
+      </section>
+
+      <!-- Models Section -->
+      <section id="models" class="features-grid">
+        <h2 class="section-title reveal" style="grid-column: 1/-1;">Choose Your Intelligence</h2>
+        <div class="feature-card model-card glass reveal">
+          <div class="model-card-header">
+            <span class="model-icon" style="color:#00dbe9;">✦</span>
+            <span class="model-tag">Default</span>
+          </div>
+          <h3>Aura 1</h3>
+          <p>Highly intelligent with Deep Think reasoning. Tackles complex problems, science, and analysis with unmatched depth.</p>
+        </div>
+        <div class="feature-card model-card glass reveal">
+          <div class="model-card-header">
+            <span class="model-icon" style="color:#4caf50;">✦</span>
+            <span class="model-tag">Bilingual</span>
+          </div>
+          <h3>Aura 2</h3>
+          <p>Explains any concept in both English and Hinglish — making knowledge accessible and easy to understand for everyone.</p>
+        </div>
+        <div class="feature-card model-card glass reveal">
+          <div class="model-card-header">
+            <span class="model-icon" style="color:#dcb8ff;">✦</span>
+            <span class="model-tag">Coding</span>
+          </div>
+          <h3>Aura Coder</h3>
+          <p>A world-class programming expert. Gets full, production-ready code with modern UI in any language or framework.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Auth Modal Overlay -->
+    <div id="auth-modal" style="
+      position: fixed; inset: 0; z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(5,5,8,0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    ">
+      <div class="auth-card" id="auth-modal-content" style="
+        width: 100%;
+        max-width: 440px;
+        position: relative;
+        transform: scale(0.95);
+        transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      ">
+        <!-- Close Button -->
+        <button id="close-auth-modal" style="
+          position: absolute; top: 1.25rem; right: 1.25rem;
+          background: rgba(255,255,255,0.06);
+          border: none; cursor: pointer;
+          border-radius: 50%; width: 36px; height: 36px;
+          display: flex; align-items: center; justify-content: center;
+          color: rgba(226,226,233,0.5);
+          transition: background 0.2s, color 0.2s;
+          z-index: 2;
+        " onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(226,226,233,0.5)'">
+          <span class="material-symbols-outlined" style="font-size: 20px; line-height:1;">close</span>
+        </button>
+
+        <!-- Logo & Header -->
+        <div style="text-align: center; margin-bottom: 2rem; padding-top: 0.5rem;">
+          <div style="display: inline-flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem;">
+            <div style="width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #00dbe9, #7701d0); display: flex; align-items: center; justify-content: center;">
+              <span class="material-symbols-outlined" style="color: #fff; font-size: 22px; font-variation-settings: 'FILL' 1;">auto_awesome</span>
+            </div>
+            <h1 style="font-size: 1.6rem; font-weight: 800; color: #dbfcff; font-family: 'Outfit', sans-serif; letter-spacing: -0.02em; margin: 0;">Synapse AI</h1>
+          </div>
+          <h2 id="auth-title" style="font-size: 1.35rem; font-weight: 700; font-family: 'Outfit', sans-serif; color: #e2e2e9; margin: 0 0 0.35rem 0;">Welcome Back</h2>
+          <p id="auth-subtitle" style="font-size: 0.9rem; color: rgba(185, 202, 203, 0.7); margin: 0;">Sign in to continue with Aura</p>
+        </div>
+
+        <!-- Error Display -->
+        <div id="auth-error" class="auth-error" style="margin-bottom: 1rem;"></div>
+
+        <!-- Auth Form -->
+        <form id="auth-form" style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <!-- Name (hidden by default, shown on sign-up) -->
+          <div id="name-field" style="display: none;">
+            <input id="display-name" type="text" class="auth-input" placeholder="Your name" autocomplete="name" />
+          </div>
+
+          <div>
+            <input id="email" type="email" class="auth-input" placeholder="Email address" required autocomplete="email" />
+          </div>
+
+          <div style="position: relative;">
+            <input id="password" type="password" class="auth-input" placeholder="Password" required minlength="6" autocomplete="current-password" style="padding-right: 3rem;" />
+            <button type="button" id="toggle-password" tabindex="-1" style="position:absolute;right:1rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(226,226,233,0.5);padding:0;display:flex;align-items:center;">
+              <span class="material-symbols-outlined" id="toggle-password-icon" style="font-size:20px;">visibility</span>
+            </button>
+          </div>
+          
+          <!-- Password strength (shown only on sign-up) -->
+          <div id="password-strength-bar" style="display:none; margin-top: -0.25rem;">
+            <div style="display:flex; gap:4px; margin-bottom:4px;">
+              <div class="strength-seg" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.1);transition:background 0.3s;"></div>
+              <div class="strength-seg" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.1);transition:background 0.3s;"></div>
+              <div class="strength-seg" style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.1);transition:background 0.3s;"></div>
+            </div>
+            <span id="strength-label" style="font-size:0.7rem;color:rgba(226,226,233,0.4);">Password strength</span>
+          </div>
+
+          <!-- Forgot Password (sign-in only) -->
+          <div id="forgot-password-wrap" style="text-align: right; margin-top: -0.35rem;">
+            <a href="#" id="forgot-password-link" style="font-size: 0.78rem; color: rgba(185, 202, 203, 0.6); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#00dbe9'" onmouseout="this.style.color='rgba(185,202,203,0.6)'">Forgot password?</a>
+          </div>
+
+          <button id="auth-btn" type="submit" class="auth-btn" style="margin-top: 0.35rem;">
+            <span id="auth-btn-text">Sign In</span>
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="auth-divider" style="margin: 1.5rem 0;">
+          <span>or</span>
+        </div>
+
+        <!-- Google Sign In -->
+        <button id="google-btn" class="google-btn">
+          <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <!-- Toggle Sign In / Sign Up -->
+        <p style="text-align: center; margin-top: 1.5rem; font-size: 0.88rem; color: rgba(185, 202, 203, 0.6);">
+          <a href="#" id="auth-toggle" style="color: inherit; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#00dbe9'" onmouseout="this.style.color='rgba(185,202,203,0.6)'">
+            Don't have an account? <strong style="color: #00dbe9;">Create one</strong>
+          </a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="/js/firebase-config.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/landing.js"></script>
+  </body>
+</html>
