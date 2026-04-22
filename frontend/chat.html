@@ -218,13 +218,6 @@
         Your personal AI assistant. Ask me any question in your mind.
       </p>
 
-      <!-- Suggestion Chips — horizontally scrollable on mobile -->
-      <div id="suggestion-chips-container" class="flex sm:flex-wrap gap-2 overflow-x-auto sm:justify-center max-w-2xl w-[100vw] sm:w-auto -ml-3 sm:mx-auto mt-4 sm:mt-6 z-10 relative pb-2 px-3 sm:px-0 no-scrollbar" style="flex-wrap: nowrap;">
-        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 active:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-sm px-4 py-2.5 rounded-full transition-all whitespace-nowrap">Simplify quantum physics</button>
-        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 active:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-sm px-4 py-2.5 rounded-full transition-all whitespace-nowrap">Break down hybridization</button>
-        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 active:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-sm px-4 py-2.5 rounded-full transition-all whitespace-nowrap">Draft a professional email</button>
-        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 active:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-sm px-4 py-2.5 rounded-full transition-all whitespace-nowrap">Help me brainstorm ideas</button>
-      </div>
     </section>
 
     <!-- Empty State Visual -->
@@ -253,6 +246,14 @@
   <!-- Chat Input Footer -->
   <div class="fixed bottom-0 left-0 w-full z-50" id="chat-footer">
     <div class="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 chat-footer-inner">
+
+      <!-- Contextual Suggestion Chips -->
+      <div id="suggestion-chips-container" class="flex gap-2 overflow-x-auto no-scrollbar mb-3 opacity-0 transition-opacity duration-500 pointer-events-none" style="mask-image: linear-gradient(to right, black 85%, transparent 100%); -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);">
+        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap">Simplify quantum physics</button>
+        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap">Break down hybridization</button>
+        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap">Draft a professional email</button>
+        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap">Help me brainstorm ideas</button>
+      </div>
 
       <!-- Model Selector & Configuration -->
       <div class="flex items-center gap-2 mb-2 flex-wrap">

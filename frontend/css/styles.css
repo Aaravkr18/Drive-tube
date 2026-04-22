@@ -6,6 +6,11 @@
 :root {
   --glass-bg: rgba(30, 31, 37, 0.45);
   --glass-blur: 30px;
+  
+  /* ── Dynamic Mesh Colors ── */
+  --blob-1-color: #6366f1;
+  --blob-2-color: #0ea5e9;
+  --blob-3-color: #ec4899;
 }
 
 /* ── Custom Focus Ring — replaces ugly browser default ── */
@@ -128,23 +133,24 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   border-radius: 50%;
   opacity: 0.4;
   animation: float 20s infinite alternate ease-in-out;
+  transition: background 1.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .blob-1 {
-  background: radial-gradient(circle, #6366f1, transparent 70%);
+  background: radial-gradient(circle, var(--blob-1-color), transparent 70%);
   top: -10%;
   left: -10%;
 }
 
 .blob-2 {
-  background: radial-gradient(circle, #0ea5e9, transparent 70%);
+  background: radial-gradient(circle, var(--blob-2-color), transparent 70%);
   bottom: -10%;
   right: -10%;
   animation-delay: -5s;
 }
 
 .blob-3 {
-  background: radial-gradient(circle, #ec4899, transparent 70%);
+  background: radial-gradient(circle, var(--blob-3-color), transparent 70%);
   top: 40%;
   left: 30%;
   width: 40vw;
@@ -1766,4 +1772,48 @@ header {
     transform: none;
     opacity: 1;
   }
+}
+
+/* ── Contextual Suggestion Chips UI ── */
+#suggestion-chips-container {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 0;
+}
+
+#suggestion-chips-container::-webkit-scrollbar {
+  display: none;
+}
+
+#suggestion-chips-container button {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+#suggestion-chips-container button:hover {
+  background: rgba(0, 219, 233, 0.1);
+  border-color: rgba(0, 219, 233, 0.3);
+  color: #dbfcff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+#suggestion-chips-container button:active {
+  transform: translateY(0) scale(0.96);
+}
+
+html:not(.dark) #suggestion-chips-container button {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #333;
+}
+
+html:not(.dark) #suggestion-chips-container button:hover {
+  background: rgba(0, 105, 112, 0.08);
+  border-color: rgba(0, 105, 112, 0.2);
+  color: #006970;
 }

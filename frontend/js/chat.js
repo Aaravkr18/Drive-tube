@@ -8,6 +8,7 @@ const chatInput = document.getElementById("chat-input");
 const sendBtn = document.getElementById("send-btn");
 const heroSection = document.getElementById("hero-section");
 const emptyState = document.getElementById("empty-state");
+const suggestionChipsContainer = document.getElementById("suggestion-chips-container");
 const userNameEl = document.getElementById("user-display-name");
 const userAvatarEl = document.getElementById("user-avatar");
 const logoutBtn = document.getElementById("logout-btn");
@@ -453,11 +454,45 @@ if (modelOptions) {
       if (currentModelName === 'Aura 1') currentModelNameEl.style.color = '#00dbe9';
       else if (currentModelName === 'Aura 2') currentModelNameEl.style.color = '#4caf50';
       else if (currentModelName === 'Aura Coder') currentModelNameEl.style.color = '#dcb8ff';
+      
+      updateDynamicTheme(currentModelName);
       closeModelDropdown();
       createNewChat(); // Auto open new chat when AI model is changed
     });
   });
 }
+
+// ── Dynamic Theming ──
+function updateDynamicTheme(modelName) {
+  const root = document.documentElement;
+  
+  const themes = {
+    "Aura 1": {
+      blob1: "#6366f1", // Indigo
+      blob2: "#0ea5e9", // Cyan
+      blob3: "#ec4899"  // Pink
+    },
+    "Aura 2": {
+      blob1: "#10b981", // Emerald
+      blob2: "#4caf50", // Green
+      blob3: "#00dbe9"  // Teal
+    },
+    "Aura Coder": {
+      blob1: "#7701d0", // Deep Purple
+      blob2: "#dcb8ff", // Lavender
+      blob3: "#6366f1"  // Indigo
+    }
+  };
+
+  const theme = themes[modelName] || themes["Aura 1"];
+  
+  root.style.setProperty("--blob-1-color", theme.blob1);
+  root.style.setProperty("--blob-2-color", theme.blob2);
+  root.style.setProperty("--blob-3-color", theme.blob3);
+}
+
+// Initialize theme on load
+updateDynamicTheme(currentModelName);
 
 // window so onclick from html works
 window.loadSession = loadSession;
@@ -631,6 +666,12 @@ function createNewChat() {
   if (heroSection) heroSection.style.display = "";
   if (emptyState) emptyState.style.display = "flex";
   
+  // Show default suggestions for new chat
+  if (suggestionChipsContainer) {
+    suggestionChipsContainer.style.opacity = "1";
+    suggestionChipsContainer.style.pointerEvents = "auto";
+  }
+  
   if (drawerToggle) drawerToggle.checked = false;
   
   isStreaming = false;
@@ -780,6 +821,12 @@ function sendMessage() {
   attachedFiles = [];
   if (fileInput) fileInput.value = "";
   renderAttachments();
+  
+  // Clear suggestions while AI is thinking
+  if (suggestionChipsContainer) {
+    suggestionChipsContainer.style.opacity = "0";
+    suggestionChipsContainer.style.pointerEvents = "none";
+  }
 
   // Start AI response
   getAuraResponse(hadImageAttachment);
@@ -834,18 +881,29 @@ function animateSendButton() {
   }
 }
 
-// ── Suggestion Chips ──
-const suggestionChips = document.querySelectorAll("#suggestion-chips-container button");
-suggestionChips.forEach(chip => {
-  chip.addEventListener("click", () => {
+// ── Suggestion Chips Logic ──
+if (suggestionChipsContainer) {
+  // Use event delegation for dynamic buttons
+  suggestionChipsContainer.addEventListener("click", (e) => {
+    const chip = e.target.closest("button");
+    if (!chip) return;
+    
     if (chatInput) {
       chatInput.value = chip.textContent.trim();
-      chatInput.dispatchEvent(new Event("input")); // resize + animate button
+      chatInput.dispatchEvent(new Event("input"));
       chatInput.focus();
       sendMessage();
     }
   });
-});
+
+  // Initial show if empty state
+  setTimeout(() => {
+    if (emptyState && emptyState.style.display !== "none") {
+      suggestionChipsContainer.style.opacity = "1";
+      suggestionChipsContainer.style.pointerEvents = "auto";
+    }
+  }, 1000);
+}
 
 // ── Scroll-to-Bottom Button ──
 const scrollToBottomBtn = document.getElementById("scroll-to-bottom-btn");
@@ -1090,7 +1148,92 @@ async function getAuraResponse(hadImage = false) {
     animateSendButton();
     scrollToBottom();
     updateScrollBtn();
+    
+    // Generate follow-up suggestions (only if no serious error occurred)
+    if (fullContent.trim() && !fullContent.includes("⚠️")) {
+      generateContextualSuggestions();
+    }
   }
+}
+
+// ── Generate Contextual Suggestions ──
+async function generateContextualSuggestions() {
+  if (!suggestionChipsContainer) return;
+  
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    const idToken = await user.getIdToken();
+
+    // Take last 3 messages for context
+    const context = conversationHistory.slice(-3);
+    
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({
+        messages: context,
+        model: "stepfun-ai/step-3.5-flash", // Use a fast model for suggestions
+        persona: "You are a helpful assistant. Based on the conversation history, provide exactly 3 short, engaging follow-up questions or actions (max 6 words each) that the user might want to ask next. Return ONLY a valid JSON array of strings. Example: [\"Tell me more\", \"Give an example\", \"Simplify this\"]"
+      })
+    });
+
+    if (!response.ok) return;
+
+    // We use a separate reader for suggestions to avoid mixing with main stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullRaw = "";
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.content) fullRaw += data.content;
+          } catch(e) {}
+        }
+      }
+    }
+
+    // Extract JSON from response
+    const jsonMatch = fullRaw.match(/\[.*\]/s);
+    if (jsonMatch) {
+      const suggestions = JSON.parse(jsonMatch[0]);
+      renderNewSuggestions(suggestions);
+    }
+  } catch (err) {
+    console.warn("Could not generate suggestions:", err);
+  }
+}
+
+function renderNewSuggestions(suggestions) {
+  if (!suggestionChipsContainer || !suggestions || !Array.isArray(suggestions)) return;
+  
+  // Fade out current chips
+  suggestionChipsContainer.style.opacity = "0";
+  
+  setTimeout(() => {
+    suggestionChipsContainer.innerHTML = "";
+    
+    suggestions.forEach(text => {
+      const btn = document.createElement("button");
+      btn.className = "flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap active:scale-95";
+      btn.textContent = text;
+      suggestionChipsContainer.appendChild(btn);
+    });
+    
+    // Fade in new chips
+    suggestionChipsContainer.style.opacity = "1";
+    suggestionChipsContainer.style.pointerEvents = "auto";
+  }, 300);
 }
 
 // ── Append Action Bar to AI Bubble ──
