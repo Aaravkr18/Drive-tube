@@ -96,32 +96,50 @@ if (authToggle) {
     e.preventDefault();
     isSignUp = !isSignUp;
     const forgotWrap = document.getElementById('forgot-password-wrap');
-    if (isSignUp) {
-      authTitle.textContent      = 'Create Account';
-      authSubtitle.textContent   = 'Join Synapse AI today';
-      authBtnText.textContent    = 'Create Account';
-      authToggle.innerHTML       = 'Already have an account? <strong style="color:#00dbe9;">Sign In</strong>';
-      if (nameField) nameField.style.display = 'block';
-      if (passwordStrengthBar)  passwordStrengthBar.style.display = 'block';
-      if (forgotWrap) forgotWrap.style.display = 'none';
-    } else {
-      authTitle.textContent      = 'Welcome Back';
-      authSubtitle.textContent   = 'Sign in to continue with Aura';
-      authBtnText.textContent    = 'Sign In';
-      authToggle.innerHTML       = "Don't have an account? <strong style='color:#00dbe9;'>Create one</strong>";
-      if (nameField) nameField.style.display = 'none';
-      if (passwordStrengthBar) {
-        passwordStrengthBar.style.display = 'none';
-        // Reset strength segments to gray
-        document.querySelectorAll('.strength-seg').forEach(seg => {
-          seg.style.background = 'rgba(255,255,255,0.1)';
-        });
-        const label = document.getElementById('strength-label');
-        if (label) { label.textContent = 'Password strength'; label.style.color = 'rgba(226,226,233,0.4)'; }
-      }
-      if (forgotWrap) forgotWrap.style.display = '';
+    const authFormEl = document.getElementById('auth-form');
+    
+    // Animate the form transition
+    if (authFormEl) {
+      authFormEl.style.opacity = '0';
+      authFormEl.style.transform = 'translateY(6px)';
+      authFormEl.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
     }
-    hideError();
+    
+    setTimeout(() => {
+      if (isSignUp) {
+        authTitle.textContent      = 'Create Account';
+        authSubtitle.textContent   = 'Join Synapse AI today';
+        authBtnText.textContent    = 'Create Account';
+        authToggle.innerHTML       = 'Already have an account? <strong style="color:#00dbe9;">Sign In</strong>';
+        if (nameField) nameField.style.display = 'block';
+        if (passwordStrengthBar)  passwordStrengthBar.style.display = 'block';
+        if (forgotWrap) forgotWrap.style.display = 'none';
+      } else {
+        authTitle.textContent      = 'Welcome Back';
+        authSubtitle.textContent   = 'Sign in to continue with Aura';
+        authBtnText.textContent    = 'Sign In';
+        authToggle.innerHTML       = "Don't have an account? <strong style='color:#00dbe9;'>Create one</strong>";
+        if (nameField) nameField.style.display = 'none';
+        if (passwordStrengthBar) {
+          passwordStrengthBar.style.display = 'none';
+          document.querySelectorAll('.strength-seg').forEach(seg => {
+            seg.style.background = 'rgba(255,255,255,0.1)';
+          });
+          const label = document.getElementById('strength-label');
+          if (label) { label.textContent = 'Password strength'; label.style.color = 'rgba(226,226,233,0.4)'; }
+        }
+        if (forgotWrap) forgotWrap.style.display = '';
+      }
+      hideError();
+      
+      // Animate form back in
+      if (authFormEl) {
+        requestAnimationFrame(() => {
+          authFormEl.style.opacity = '1';
+          authFormEl.style.transform = 'translateY(0)';
+        });
+      }
+    }, 200);
   });
 }
 

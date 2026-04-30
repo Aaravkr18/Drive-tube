@@ -74,6 +74,13 @@
   opacity: 1;
 }
 
+/* Mobile: timestamps always subtly visible */
+@media (hover: none) {
+  .message-timestamp {
+    opacity: 0.35;
+  }
+}
+
 /* ── Model Accent Colors in Footer ── */
 #current-model-name[data-model="aura1"] { color: #00dbe9; }
 #current-model-name[data-model="aura2"] { color: #4caf50; }
@@ -260,26 +267,38 @@ body, .bg-background {
   gap: 0.75rem;
   max-width: 85%;
   min-width: 0;
-  animation: message-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .message-row.user {
   align-self: flex-end;
   flex-direction: row-reverse;
+  animation: message-in-user 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .message-row.ai {
   align-self: flex-start;
+  animation: message-in-ai 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes message-in {
+@keyframes message-in-user {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.97);
+    transform: translateX(20px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes message-in-ai {
+  from {
+    opacity: 0;
+    transform: translateX(-20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
   }
 }
 
@@ -809,6 +828,17 @@ body {
   background: rgba(119, 1, 208, 0.06);
   overflow: hidden;
   animation: thinking-in 0.3s ease;
+}
+
+.thinking-block .thinking-content {
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease, opacity 0.25s ease;
+}
+
+.thinking-block:not([open]) .thinking-content {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
 }
 
 @keyframes thinking-in {
@@ -1817,3 +1847,96 @@ html:not(.dark) #suggestion-chips-container button:hover {
   border-color: rgba(0, 105, 112, 0.2);
   color: #006970;
 }
+
+/* ============================================
+   Orb State Animations
+   ============================================ */
+
+/* Thinking: faster purple pulse */
+.aura-orb.orb-thinking {
+  animation-duration: 2s !important;
+  box-shadow: 0 0 60px rgba(119, 1, 208, 0.35), 0 0 120px rgba(119, 1, 208, 0.15) !important;
+}
+.aura-orb.orb-thinking .orb-inner {
+  background: radial-gradient(circle at 40% 40%, rgba(119, 1, 208, 0.5), rgba(220, 184, 255, 0.3)) !important;
+  animation-duration: 1.5s !important;
+}
+.aura-orb.orb-thinking .orb-glow {
+  background: radial-gradient(circle, rgba(119, 1, 208, 0.15) 0%, transparent 70%) !important;
+  animation-duration: 1.5s !important;
+}
+
+/* Responding: cyan glow expansion */
+.aura-orb.orb-responding {
+  animation-duration: 3s !important;
+  box-shadow: 0 0 60px rgba(0, 219, 233, 0.35), 0 0 120px rgba(0, 219, 233, 0.15) !important;
+}
+.aura-orb.orb-responding .orb-inner {
+  background: radial-gradient(circle at 40% 40%, rgba(0, 219, 233, 0.5), rgba(0, 105, 112, 0.3)) !important;
+}
+.aura-orb.orb-responding .orb-glow {
+  background: radial-gradient(circle, rgba(0, 219, 233, 0.15) 0%, transparent 70%) !important;
+}
+
+/* Error: red flash */
+.aura-orb.orb-error {
+  animation-duration: 0.5s !important;
+  box-shadow: 0 0 60px rgba(255, 82, 82, 0.4), 0 0 120px rgba(255, 82, 82, 0.15) !important;
+}
+.aura-orb.orb-error .orb-inner {
+  background: radial-gradient(circle at 40% 40%, rgba(255, 82, 82, 0.5), rgba(200, 0, 0, 0.3)) !important;
+}
+.aura-orb.orb-error .orb-glow {
+  background: radial-gradient(circle, rgba(255, 82, 82, 0.2) 0%, transparent 70%) !important;
+}
+
+/* ============================================
+   Category Chips (Empty State Onboarding)
+   ============================================ */
+.category-chip {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.category-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.category-chip:active {
+  transform: translateY(0) scale(0.96);
+}
+
+html:not(.dark) .category-chip {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #555;
+}
+
+/* Category chip entrance animation */
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.category-chip {
+  animation: chip-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.category-chip:nth-child(1) { animation-delay: 0.6s; }
+.category-chip:nth-child(2) { animation-delay: 0.7s; }
+.category-chip:nth-child(3) { animation-delay: 0.8s; }
+.category-chip:nth-child(4) { animation-delay: 0.9s; }
+.category-chip:nth-child(5) { animation-delay: 1.0s; }
+.category-chip:nth-child(6) { animation-delay: 1.1s; }

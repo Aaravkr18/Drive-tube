@@ -117,10 +117,47 @@
           <p>A world-class programming expert. Gets full, production-ready code with modern UI in any language or framework.</p>
         </div>
       </section>
+
+      <!-- Stats Ribbon -->
+      <section class="stats-ribbon reveal">
+        <div class="stat-item">
+          <span class="stat-number">3</span>
+          <span class="stat-label">AI Models</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">∞</span>
+          <span class="stat-label">Conversations</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">&lt;1s</span>
+          <span class="stat-label">Response Time</span>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="landing-footer reveal">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <span class="logo-synapse" style="font-size: 1.2rem;">SYNAPSE</span><span class="logo-ai" style="font-size: 1.2rem;">AI</span>
+            <p class="footer-tagline">The future of personal intelligence</p>
+          </div>
+          <div class="footer-links">
+            <a href="#features" class="footer-link">Features</a>
+            <a href="#models" class="footer-link">Models</a>
+            <a href="/login.html" class="footer-link" id="footer-launch-btn">Launch Aura</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>Made with ✦ by Aarav</p>
+          <p>© 2026 Synapse AI. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
 
     <!-- Auth Modal Overlay -->
-    <div id="auth-modal" style="
+    <div id="auth-modal" role="dialog" aria-modal="true" aria-label="Sign in to Synapse AI" style="
       position: fixed; inset: 0; z-index: 9999;
       display: none;
       align-items: center;

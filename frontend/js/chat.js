@@ -457,7 +457,8 @@ if (modelOptions) {
       
       updateDynamicTheme(currentModelName);
       closeModelDropdown();
-      createNewChat(); // Auto open new chat when AI model is changed
+      createNewChat();
+      showToast(`Switched to ${currentModelName}`, 'success');
     });
   });
 }
@@ -552,6 +553,10 @@ function loadSession(id) {
   chatMessages.innerHTML = "";
   if (heroSection) heroSection.style.display = "none";
   if (emptyState) emptyState.style.display = "none";
+  if (suggestionChipsContainer) {
+    suggestionChipsContainer.style.opacity = "0";
+    suggestionChipsContainer.style.pointerEvents = "none";
+  }
   
   conversationHistory.forEach((msg, idx) => {
     // Handling multimodal historical messages
@@ -676,6 +681,7 @@ function createNewChat() {
   
   isStreaming = false;
   updateSendButton(false);
+  setOrbState('idle');
 }
 
 // ── UI Modal & Navigation ──
@@ -731,24 +737,48 @@ function loadHistoryIndex() {
     historyListContainer.innerHTML = '<p class="text-on-surface-variant text-center my-8 text-sm">No recent chats.</p>';
     return;
   }
-  
+
+  // Group by time periods
+  const now = Date.now();
+  const dayMs = 86400000;
+  const groups = {
+    'Today': [],
+    'Yesterday': [],
+    'Last 7 Days': [],
+    'Older': []
+  };
+
   index.forEach(chat => {
-    const item = document.createElement("div");
-    item.className = "history-item";
-    
-    // Date formatting — relative time
-    const date = formatRelativeTime(chat.updatedAt);
-    
-    item.innerHTML = `
-      <div class="flex-1 overflow-hidden" onclick="loadSession('${chat.id}')">
-        <p class="text-on-surface font-bold text-sm truncate">${escapeHtml(chat.title)}</p>
-        <p class="text-on-surface-variant text-xs">${date}</p>
-      </div>
-      <button onclick="event.stopPropagation(); deleteSession('${chat.id}')" class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:text-error hover:bg-white/5 transition-colors">
-        <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
-      </button>
-    `;
-    historyListContainer.appendChild(item);
+    const age = now - chat.updatedAt;
+    if (age < dayMs) groups['Today'].push(chat);
+    else if (age < 2 * dayMs) groups['Yesterday'].push(chat);
+    else if (age < 7 * dayMs) groups['Last 7 Days'].push(chat);
+    else groups['Older'].push(chat);
+  });
+
+  Object.entries(groups).forEach(([label, chats]) => {
+    if (chats.length === 0) return;
+
+    const groupLabel = document.createElement('p');
+    groupLabel.className = 'text-xs text-on-surface-variant/50 font-bold uppercase tracking-wider mt-3 mb-1.5 px-1';
+    groupLabel.textContent = label;
+    historyListContainer.appendChild(groupLabel);
+
+    chats.forEach(chat => {
+      const item = document.createElement("div");
+      item.className = "history-item";
+      const date = formatRelativeTime(chat.updatedAt);
+      item.innerHTML = `
+        <div class="flex-1 overflow-hidden" onclick="loadSession('${chat.id}')">
+          <p class="text-on-surface font-bold text-sm truncate">${escapeHtml(chat.title)}</p>
+          <p class="text-on-surface-variant text-xs">${date}</p>
+        </div>
+        <button onclick="event.stopPropagation(); deleteSession('${chat.id}')" class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:text-error hover:bg-white/5 transition-colors" aria-label="Delete chat">
+          <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
+        </button>
+      `;
+      historyListContainer.appendChild(item);
+    });
   });
 }
 
@@ -905,6 +935,47 @@ if (suggestionChipsContainer) {
   }, 1000);
 }
 
+// ── Category Chips Logic (empty state onboarding) ──
+const categoryChipsContainer = document.getElementById('category-chips');
+if (categoryChipsContainer) {
+  categoryChipsContainer.addEventListener('click', (e) => {
+    const chip = e.target.closest('.category-chip');
+    if (!chip) return;
+    const prompt = chip.dataset.prompt;
+    if (prompt && chatInput) {
+      chatInput.value = prompt;
+      chatInput.dispatchEvent(new Event('input'));
+      chatInput.focus();
+      sendMessage();
+    }
+  });
+}
+
+
+// ── Orb State Management ──
+function setOrbState(state) {
+  const orb = document.getElementById('aura-state-orb');
+  if (!orb) return;
+  
+  // Reset classes
+  orb.classList.remove('orb-thinking', 'orb-responding', 'orb-error');
+  
+  switch (state) {
+    case 'thinking':
+      orb.classList.add('orb-thinking');
+      break;
+    case 'responding':
+      orb.classList.add('orb-responding');
+      break;
+    case 'error':
+      orb.classList.add('orb-error');
+      setTimeout(() => orb.classList.remove('orb-error'), 1500);
+      break;
+    default: // 'idle'
+      break;
+  }
+}
+
 // ── Scroll-to-Bottom Button ──
 const scrollToBottomBtn = document.getElementById("scroll-to-bottom-btn");
 
@@ -996,6 +1067,7 @@ async function getAuraResponse(hadImage = false) {
   isStreaming = true;
   abortController = new AbortController();
   updateSendButton(true);
+  setOrbState('thinking');
 
   const typingEl = showTypingIndicator(hadImage);
 
@@ -1096,6 +1168,7 @@ async function getAuraResponse(hadImage = false) {
               bubbleEl.appendChild(contentContainer);
             }
             contentContainer.innerHTML = renderMarkdown(fullContent, true) + '<span class="typing-cursor"></span>';
+            setOrbState('responding');
             scrollToBottom();
           }
         } catch (parseErr) {
@@ -1140,6 +1213,7 @@ async function getAuraResponse(hadImage = false) {
             "⚠️ I'm having trouble connecting right now. Please check your connection and try again."
           );
       }
+      setOrbState('error');
     }
   } finally {
     isStreaming = false;
@@ -1148,6 +1222,7 @@ async function getAuraResponse(hadImage = false) {
     animateSendButton();
     scrollToBottom();
     updateScrollBtn();
+    setOrbState('idle');
     
     // Generate follow-up suggestions (only if no serious error occurred)
     if (fullContent.trim() && !fullContent.includes("⚠️")) {

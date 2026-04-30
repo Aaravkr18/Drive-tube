@@ -135,7 +135,7 @@
   <label class="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm" for="drawer-toggle" id="drawer-overlay"></label>
 
   <!-- Navigation Drawer -->
-  <aside class="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-[#1e1f25]/80 backdrop-blur-3xl z-[70] shadow-2xl shadow-black/50 rounded-r-2xl transition-all duration-300 ease-in-out flex flex-col p-6 h-full" id="drawer">
+  <aside class="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-[#1e1f25]/80 backdrop-blur-3xl z-[70] shadow-2xl shadow-black/50 rounded-r-2xl transition-all duration-300 ease-in-out flex flex-col p-6 h-full" id="drawer" role="navigation" aria-label="Main menu">
     <div class="flex items-center justify-between mb-8">
       <h2 class="text-[#dbfcff] font-bold text-2xl font-headline tracking-tight">Synapse AI</h2>
       <label class="cursor-pointer text-[#dbfcff]/60 hover:text-[#dbfcff]" for="drawer-toggle">
@@ -179,7 +179,7 @@
   <!-- Top App Bar -->
   <header class="fixed top-0 w-full z-50 bg-[#111318]/60 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,219,233,0.04)] h-16 flex items-center justify-between px-4 sm:px-6">
     <div class="flex items-center gap-3">
-      <label class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors active:scale-95 duration-200 cursor-pointer header-icon text-[#dbfcff]" for="drawer-toggle">
+      <label class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors active:scale-95 duration-200 cursor-pointer header-icon text-[#dbfcff]" for="drawer-toggle" aria-label="Open menu">
         <span class="material-symbols-outlined">menu</span>
       </label>
       <h1 id="header-logo" class="text-2xl font-bold text-[#dbfcff] font-headline tracking-tight cursor-pointer hover:opacity-80 transition-opacity">Synapse AI</h1>
@@ -187,7 +187,7 @@
     <div class="flex items-center gap-2">
 
       <!-- Delete All History -->
-      <button id="delete-all-history-btn" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors active:scale-95 duration-200 text-[#dbfcff] hover:text-[#ffb4ab]" title="Delete All History">
+      <button id="delete-all-history-btn" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors active:scale-95 duration-200 text-[#dbfcff] hover:text-[#ffb4ab]" title="Delete All History" aria-label="Delete all chat history">
         <span class="material-symbols-outlined">delete_sweep</span>
       </button>
     </div>
@@ -221,21 +221,42 @@
     </section>
 
     <!-- Empty State Visual -->
-    <div id="empty-state" class="empty-state flex flex-col items-center mb-8" style="margin-top: 6vh;">
-      <div class="aura-orb-container" style="width: 120px; height: 120px; margin-bottom: 2rem;">
-        <div class="aura-orb" style="animation-duration: 8s;">
+    <div id="empty-state" class="empty-state flex flex-col items-center mb-8" style="margin-top: 4vh;">
+      <div class="aura-orb-container" style="width: 100px; height: 100px; margin-bottom: 1.5rem;">
+        <div class="aura-orb" id="aura-state-orb" style="animation-duration: 8s;">
           <div class="orb-inner"></div>
           <div class="orb-glow"></div>
         </div>
       </div>
-      <span class="mt-4 text-xs font-label uppercase tracking-[0.2em] text-on-surface-variant opacity-50">Awaiting Input</span>
+      <p class="text-sm text-on-surface-variant opacity-60 mb-6 text-center px-4" style="max-width: 320px; font-family: 'Inter', sans-serif;">Ask me anything — from science to code to creative writing.</p>
+      <!-- Category Chips -->
+      <div class="flex flex-wrap justify-center gap-2 px-4" id="category-chips" style="max-width: 420px;">
+        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#00dbe9]/10 border border-outline-variant/20 hover:border-[#00dbe9]/30 text-on-surface-variant hover:text-[#dbfcff] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Explain quantum physics in simple terms">
+          <span class="material-symbols-outlined" style="font-size:16px;">science</span> Science
+        </button>
+        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#dcb8ff]/10 border border-outline-variant/20 hover:border-[#dcb8ff]/30 text-on-surface-variant hover:text-[#dcb8ff] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Write a modern responsive landing page with HTML, CSS & JS">
+          <span class="material-symbols-outlined" style="font-size:16px;">code</span> Code
+        </button>
+        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#4caf50]/10 border border-outline-variant/20 hover:border-[#4caf50]/30 text-on-surface-variant hover:text-[#4caf50] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Help me study for my math exam — quiz me on calculus">
+          <span class="material-symbols-outlined" style="font-size:16px;">school</span> Study
+        </button>
+        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#ff9800]/10 border border-outline-variant/20 hover:border-[#ff9800]/30 text-on-surface-variant hover:text-[#ff9800] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Write a short creative story about a time traveler">
+          <span class="material-symbols-outlined" style="font-size:16px;">edit_note</span> Writing
+        </button>
+        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#e91e63]/10 border border-outline-variant/20 hover:border-[#e91e63]/30 text-on-surface-variant hover:text-[#e91e63] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Solve this math problem step by step: integrate x^2 * e^x dx">
+          <span class="material-symbols-outlined" style="font-size:16px;">calculate</span> Math
+        </button>
+        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#00bcd4]/10 border border-outline-variant/20 hover:border-[#00bcd4]/30 text-on-surface-variant hover:text-[#00bcd4] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Debate: Is AI a threat to humanity? Take the opposing side">
+          <span class="material-symbols-outlined" style="font-size:16px;">forum</span> Debate
+        </button>
+      </div>
     </div>
 
     <!-- Chat Messages Container -->
-    <div id="chat-messages" class="chat-messages w-full flex-1"></div>
+    <div id="chat-messages" class="chat-messages w-full flex-1" aria-live="polite" aria-label="Chat messages"></div>
 
     <!-- Scroll to bottom button -->
-    <button id="scroll-to-bottom-btn" class="fixed bottom-32 right-4 md:right-8 w-11 h-11 rounded-full flex items-center justify-center z-40 transition-all opacity-0 pointer-events-none shadow-lg active:scale-90" style="background:rgba(30,31,37,0.9); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.1); color:#e2e2e9;">
+    <button id="scroll-to-bottom-btn" class="fixed bottom-32 right-4 md:right-8 w-11 h-11 rounded-full flex items-center justify-center z-40 transition-all opacity-0 pointer-events-none shadow-lg active:scale-90" style="background:rgba(30,31,37,0.9); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.1); color:#e2e2e9;" aria-label="Scroll to bottom">
       <span class="material-symbols-outlined" style="font-size:20px;">arrow_downward</span>
     </button>
   </main>
@@ -310,8 +331,8 @@
       <!-- Normal Text Input -->
       <div id="text-input-bar" class="glass-card border border-outline-variant/30 rounded-full p-2 flex items-center gap-2 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         <input type="file" id="file-input" class="hidden" multiple accept=".txt,.json,.md,.csv,image/png,image/jpeg,image/webp,image/gif" />
-        <button id="attach-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary transition-colors">
-          <span class="material-symbols-outlined">add</span>
+        <button id="attach-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary transition-colors" aria-label="Attach file">
+          <span class="material-symbols-outlined">attach_file</span>
         </button>
         <textarea
           id="chat-input"
@@ -320,10 +341,10 @@
           rows="1"
           style="max-height: 120px;"
         ></textarea>
-        <button id="stop-btn" class="hidden w-10 h-10 flex items-center justify-center rounded-xl text-error hover:bg-error/10 transition-all active:scale-90" title="Stop generating">
+        <button id="stop-btn" class="hidden w-10 h-10 flex items-center justify-center rounded-xl text-error hover:bg-error/10 transition-all active:scale-90" title="Stop generating" aria-label="Stop generating">
           <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stop_circle</span>
         </button>
-        <button id="send-btn" class="bg-primary-container text-on-primary-fixed w-10 h-10 flex items-center justify-center rounded-full hover:shadow-[0_0_20px_rgba(0,219,233,0.3)] transition-all active:scale-90">
+        <button id="send-btn" class="bg-primary-container text-on-primary-fixed w-10 h-10 flex items-center justify-center rounded-full hover:shadow-[0_0_20px_rgba(0,219,233,0.3)] transition-all active:scale-90" aria-label="Send message">
           <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
         </button>
       </div>
@@ -337,7 +358,7 @@
   </div>
 
   <!-- History Modal -->
-  <div id="history-modal" class="fixed inset-0 z-[100] hidden flex-col items-end sm:items-center justify-end sm:justify-center backdrop-blur-md bg-black/40 p-0 sm:p-4 transition-opacity duration-300 opacity-0">
+  <div id="history-modal" class="fixed inset-0 z-[100] hidden flex-col items-end sm:items-center justify-end sm:justify-center backdrop-blur-md bg-black/40 p-0 sm:p-4 transition-opacity duration-300 opacity-0" role="dialog" aria-modal="true" aria-label="Chat history">
     <div class="glass-card w-full max-w-lg rounded-t-2xl sm:rounded-2xl border border-outline-variant/30 flex flex-col max-h-[85vh] shadow-2xl transform transition-transform duration-300 translate-y-full sm:translate-y-0 sm:scale-95" id="history-modal-content" style="padding-bottom: env(safe-area-inset-bottom, 0px);">
       <div class="flex items-center justify-between p-4 sm:p-5 border-b border-outline-variant/20">
         <h3 class="text-lg sm:text-xl font-headline font-bold text-primary">Chat History</h3>
@@ -352,7 +373,7 @@
   </div>
 
   <!-- Delete History Confirm Modal -->
-  <div id="delete-history-modal" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center backdrop-blur-md bg-black/40 p-4 transition-opacity duration-300 opacity-0">
+  <div id="delete-history-modal" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center backdrop-blur-md bg-black/40 p-4 transition-opacity duration-300 opacity-0" role="dialog" aria-modal="true" aria-label="Confirm deletion">
     <div class="glass-card w-full max-w-sm rounded-2xl border border-error/30 flex flex-col shadow-2xl transform transition-transform duration-300 scale-95" id="delete-history-modal-content">
       <div class="flex flex-col items-center p-6 text-center">
         <div class="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-4">
@@ -375,7 +396,7 @@
 
 
   <!-- AI Personality Modal -->
-  <div id="settings-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+  <div id="settings-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-300" role="dialog" aria-modal="true" aria-label="AI Personality settings">
     <div class="bg-surface-container border border-outline-variant/30 w-[92%] max-w-lg rounded-2xl shadow-2xl transform scale-95 transition-transform duration-300 max-h-[85vh] flex flex-col" id="settings-modal-content">
       
       <!-- Header -->
