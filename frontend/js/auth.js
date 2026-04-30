@@ -156,11 +156,17 @@ if (authForm) {
 
     try {
       explicitLoginAttempt = true;
+      let isNewUser = false;
       if (isSignUp) {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         if (displayName) await cred.user.updateProfile({ displayName });
+        isNewUser = true;
       } else {
         await auth.signInWithEmailAndPassword(email, password);
+      }
+      
+      if (isNewUser) {
+        sessionStorage.setItem('synapse_new_user', 'true');
       }
       // onAuthStateChanged will handle the redirect
     } catch (err) {
@@ -178,7 +184,11 @@ if (googleBtn) {
     try {
       explicitLoginAttempt = true;
       const provider = new firebase.auth.GoogleAuthProvider();
-      await auth.signInWithPopup(provider);
+      const cred = await auth.signInWithPopup(provider);
+      
+      if (cred.additionalUserInfo && cred.additionalUserInfo.isNewUser) {
+        sessionStorage.setItem('synapse_new_user', 'true');
+      }
     } catch (err) {
       explicitLoginAttempt = false;
       if (err.code !== 'auth/popup-closed-by-user') {
@@ -192,11 +202,47 @@ if (googleBtn) {
 auth.onAuthStateChanged((user) => {
   const currentPage = window.location.pathname;
 
+  // Dynamic Launch Buttons for Landing Page
+  const navLaunchBtn = document.getElementById('nav-launch-btn');
+  const heroStartBtn = document.getElementById('hero-start-btn');
+  const footerLaunchBtn = document.getElementById('footer-launch-btn');
+
   if (user) {
+    if (navLaunchBtn) navLaunchBtn.textContent = 'Go to Chat';
+    if (heroStartBtn) heroStartBtn.textContent = 'Continue Chatting';
+    if (footerLaunchBtn) footerLaunchBtn.textContent = 'Go to Chat';
+
     // Only redirect to chat if the user explicitly signed in (not on passive session restore)
     if (explicitLoginAttempt) {
+      const isNewUser = sessionStorage.getItem('synapse_new_user') === 'true';
+      sessionStorage.removeItem('synapse_new_user');
+
       if (currentPage === '/' || currentPage === '/index.html' || currentPage === '/login.html') {
-        navigateTo('/chat.html');
+        if (isNewUser) {
+          // It's a new user -> show pricing
+          if (currentPage === '/login.html') {
+            navigateTo('/index.html#pricing');
+          } else {
+            // We are already on index.html
+            // Close the auth modal
+            const authModal = document.getElementById('auth-modal');
+            if (authModal) {
+              authModal.style.opacity = '0';
+              setTimeout(() => {
+                authModal.style.display = 'none';
+              }, 300);
+            }
+            // Navigate to pricing section
+            window.location.hash = 'pricing';
+            const pricingSec = document.getElementById('pricing');
+            if (pricingSec) {
+              pricingSec.scrollIntoView({ behavior: 'smooth' });
+            }
+          }
+        } else {
+          // Existing user -> go to chat
+          navigateTo('/chat.html');
+        }
       }
     }
   } else {

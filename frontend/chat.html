@@ -268,13 +268,7 @@
   <div class="fixed bottom-0 left-0 w-full z-50" id="chat-footer">
     <div class="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 chat-footer-inner">
 
-      <!-- Contextual Suggestion Chips -->
-      <div id="suggestion-chips-container" class="flex gap-2 overflow-x-auto no-scrollbar mb-3 opacity-0 transition-opacity duration-500 pointer-events-none" style="mask-image: linear-gradient(to right, black 85%, transparent 100%); -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);">
-        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap">Simplify quantum physics</button>
-        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap">Break down hybridization</button>
-        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap">Draft a professional email</button>
-        <button class="flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap">Help me brainstorm ideas</button>
-      </div>
+
 
       <!-- Model Selector & Configuration -->
       <div class="flex items-center gap-2 mb-2 flex-wrap">
@@ -341,6 +335,10 @@
           rows="1"
           style="max-height: 120px;"
         ></textarea>
+        <!-- MIC BUTTON -->
+        <button id="mic-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-secondary transition-colors relative" aria-label="Voice input" title="Voice input">
+          <span class="material-symbols-outlined">mic</span>
+        </button>
         <button id="stop-btn" class="hidden w-10 h-10 flex items-center justify-center rounded-xl text-error hover:bg-error/10 transition-all active:scale-90" title="Stop generating" aria-label="Stop generating">
           <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stop_circle</span>
         </button>
@@ -526,7 +524,7 @@
         </div>
       </div>
       <div class="flex-1 bg-white w-full rounded-b-2xl overflow-hidden relative">
-        <iframe id="code-preview-iframe" class="w-full h-full border-none" sandbox="allow-scripts"></iframe>
+        <iframe id="code-preview-iframe" class="w-full h-full border-none" sandbox="allow-scripts allow-modals"></iframe>
       </div>
     </div>
   </div>

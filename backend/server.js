@@ -195,7 +195,6 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
 
     const stream = await activeAiClient.chat.completions.create(params);
 
-    let streamDone = false;
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta || {};
       const content = delta.content;
@@ -207,11 +206,6 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       
       if (content) {
         res.write(`data: ${JSON.stringify({ content })}\n\n`);
-      }
-      
-      // Mark done only after all content has been sent
-      if (chunk.choices[0]?.finish_reason === "stop" || chunk.choices[0]?.finish_reason === "length") {
-        streamDone = true;
       }
     }
     // Send done AFTER the loop finishes to ensure all chunks are processed

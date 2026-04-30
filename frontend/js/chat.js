@@ -8,7 +8,6 @@ const chatInput = document.getElementById("chat-input");
 const sendBtn = document.getElementById("send-btn");
 const heroSection = document.getElementById("hero-section");
 const emptyState = document.getElementById("empty-state");
-const suggestionChipsContainer = document.getElementById("suggestion-chips-container");
 const userNameEl = document.getElementById("user-display-name");
 const userAvatarEl = document.getElementById("user-avatar");
 const logoutBtn = document.getElementById("logout-btn");
@@ -121,7 +120,12 @@ auth.onAuthStateChanged((user) => {
   if (userNameEl) userNameEl.textContent = user.displayName || user.email?.split("@")[0] || "User";
   if (userAvatarEl) {
     if (user.photoURL) {
-      userAvatarEl.innerHTML = `<img src="${user.photoURL}" alt="Profile" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+      const avatarImg = document.createElement('img');
+      avatarImg.src = user.photoURL;
+      avatarImg.alt = 'Profile';
+      avatarImg.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;';
+      userAvatarEl.innerHTML = '';
+      userAvatarEl.appendChild(avatarImg);
     } else {
       const initial = (user.displayName || user.email || "U")[0].toUpperCase();
       userAvatarEl.innerHTML = `<span style="font-size:16px;font-weight:700;color:#00dbe9;">${initial}</span>`;
@@ -210,6 +214,8 @@ if (fileInput) {
       await readPromise;
     }
     
+    // Reset file input so re-selecting the same file triggers change event
+    if (fileInput) fileInput.value = "";
     renderAttachments();
   });
 }
@@ -547,16 +553,16 @@ function loadSession(id) {
   const data = localStorage.getItem(`chat_${id}`);
   if (!data) return;
   
+  // Clear artifact store from previous chat to prevent stale references & memory leaks
+  artifactStore.clear();
+  artifactCounter = 0;
+  
   conversationHistory = JSON.parse(data);
   currentChatId = id;
   
   chatMessages.innerHTML = "";
   if (heroSection) heroSection.style.display = "none";
   if (emptyState) emptyState.style.display = "none";
-  if (suggestionChipsContainer) {
-    suggestionChipsContainer.style.opacity = "0";
-    suggestionChipsContainer.style.pointerEvents = "none";
-  }
   
   conversationHistory.forEach((msg, idx) => {
     // Handling multimodal historical messages
@@ -671,12 +677,6 @@ function createNewChat() {
   if (heroSection) heroSection.style.display = "";
   if (emptyState) emptyState.style.display = "flex";
   
-  // Show default suggestions for new chat
-  if (suggestionChipsContainer) {
-    suggestionChipsContainer.style.opacity = "1";
-    suggestionChipsContainer.style.pointerEvents = "auto";
-  }
-  
   if (drawerToggle) drawerToggle.checked = false;
   
   isStreaming = false;
@@ -787,6 +787,12 @@ function sendMessage() {
   const text = chatInput.value.trim();
   if ((!text && attachedFiles.length === 0) || isStreaming) return;
 
+  // Enforce character limit
+  if (text.length > 4000) {
+    showToast("Message is too long. Please keep it under 4000 characters.", "error");
+    return;
+  }
+
   if (heroSection) heroSection.style.display = "none";
   if (emptyState) emptyState.style.display = "none";
 
@@ -852,12 +858,6 @@ function sendMessage() {
   if (fileInput) fileInput.value = "";
   renderAttachments();
   
-  // Clear suggestions while AI is thinking
-  if (suggestionChipsContainer) {
-    suggestionChipsContainer.style.opacity = "0";
-    suggestionChipsContainer.style.pointerEvents = "none";
-  }
-
   // Start AI response
   getAuraResponse(hadImageAttachment);
 }
@@ -909,30 +909,6 @@ function animateSendButton() {
     sendBtn.style.boxShadow = "";
     sendBtn.style.transform = "";
   }
-}
-
-// ── Suggestion Chips Logic ──
-if (suggestionChipsContainer) {
-  // Use event delegation for dynamic buttons
-  suggestionChipsContainer.addEventListener("click", (e) => {
-    const chip = e.target.closest("button");
-    if (!chip) return;
-    
-    if (chatInput) {
-      chatInput.value = chip.textContent.trim();
-      chatInput.dispatchEvent(new Event("input"));
-      chatInput.focus();
-      sendMessage();
-    }
-  });
-
-  // Initial show if empty state
-  setTimeout(() => {
-    if (emptyState && emptyState.style.display !== "none") {
-      suggestionChipsContainer.style.opacity = "1";
-      suggestionChipsContainer.style.pointerEvents = "auto";
-    }
-  }, 1000);
 }
 
 // ── Category Chips Logic (empty state onboarding) ──
@@ -1223,92 +1199,7 @@ async function getAuraResponse(hadImage = false) {
     scrollToBottom();
     updateScrollBtn();
     setOrbState('idle');
-    
-    // Generate follow-up suggestions (only if no serious error occurred)
-    if (fullContent.trim() && !fullContent.includes("⚠️")) {
-      generateContextualSuggestions();
-    }
   }
-}
-
-// ── Generate Contextual Suggestions ──
-async function generateContextualSuggestions() {
-  if (!suggestionChipsContainer) return;
-  
-  try {
-    const user = auth.currentUser;
-    if (!user) return;
-    const idToken = await user.getIdToken();
-
-    // Take last 3 messages for context
-    const context = conversationHistory.slice(-3);
-    
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({
-        messages: context,
-        model: "stepfun-ai/step-3.5-flash", // Use a fast model for suggestions
-        persona: "You are a helpful assistant. Based on the conversation history, provide exactly 3 short, engaging follow-up questions or actions (max 6 words each) that the user might want to ask next. Return ONLY a valid JSON array of strings. Example: [\"Tell me more\", \"Give an example\", \"Simplify this\"]"
-      })
-    });
-
-    if (!response.ok) return;
-
-    // We use a separate reader for suggestions to avoid mixing with main stream
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let fullRaw = "";
-    
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n");
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.content) fullRaw += data.content;
-          } catch(e) {}
-        }
-      }
-    }
-
-    // Extract JSON from response
-    const jsonMatch = fullRaw.match(/\[.*\]/s);
-    if (jsonMatch) {
-      const suggestions = JSON.parse(jsonMatch[0]);
-      renderNewSuggestions(suggestions);
-    }
-  } catch (err) {
-    console.warn("Could not generate suggestions:", err);
-  }
-}
-
-function renderNewSuggestions(suggestions) {
-  if (!suggestionChipsContainer || !suggestions || !Array.isArray(suggestions)) return;
-  
-  // Fade out current chips
-  suggestionChipsContainer.style.opacity = "0";
-  
-  setTimeout(() => {
-    suggestionChipsContainer.innerHTML = "";
-    
-    suggestions.forEach(text => {
-      const btn = document.createElement("button");
-      btn.className = "flex-shrink-0 bg-surface-variant/30 hover:bg-surface-variant/70 border border-outline-variant/30 text-on-surface-variant text-xs px-4 py-2 rounded-full transition-all whitespace-nowrap active:scale-95";
-      btn.textContent = text;
-      suggestionChipsContainer.appendChild(btn);
-    });
-    
-    // Fade in new chips
-    suggestionChipsContainer.style.opacity = "1";
-    suggestionChipsContainer.style.pointerEvents = "auto";
-  }, 300);
 }
 
 // ── Append Action Bar to AI Bubble ──
@@ -1403,7 +1294,11 @@ function appendMessage(role, content, explicitIndex = -1, isRawHtmlForUser = fal
   } else {
     const user = auth.currentUser;
     if (user?.photoURL) {
-      avatar.innerHTML = `<img src="${user.photoURL}" alt="You">`;
+      const avatarImg = document.createElement('img');
+      avatarImg.src = user.photoURL;
+      avatarImg.alt = 'You';
+      avatar.innerHTML = '';
+      avatar.appendChild(avatarImg);
     } else {
       const initial = (user?.displayName || user?.email || "U")[0].toUpperCase();
       avatar.textContent = initial;
@@ -1579,9 +1474,9 @@ function renderMarkdown(text, isStreaming = false) {
 
   // ── Step 1c: Handle INCOMPLETE code blocks (still streaming) ──
   // Only check during streaming — match a trailing ``` that was NOT consumed by the complete regex
+  // Anchored to line start (^) to avoid false positives from inline backticks
   if (isStreaming) {
-    processed = processed.replace(/```(\w*)(?:\n[\s\S]*)?$/g, (match, lang) => {
-      // Only match if this looks like a real opening fence (at start of line)
+    processed = processed.replace(/^```(\w*)(?:\n[\s\S]*)?$/gm, (match, lang) => {
       const langLabel = lang || "code";
       const isHtml = langLabel.toLowerCase() === "html";
       if (isHtml) {
@@ -1668,9 +1563,15 @@ function renderMarkdown(text, isStreaming = false) {
   html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  html = html.replace(/^[\s]*[-*]\s+(.+)$/gm, "<li>$1</li>");
-  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
-  html = html.replace(/^[\s]*\d+\.\s+(.+)$/gm, "<li>$1</li>");
+  html = html.replace(/^[\s]*[-*]\s+(.+)$/gm, "<li class=\"ul-item\">$1</li>");
+  html = html.replace(/^[\s]*\d+\.\s+(.+)$/gm, "<li class=\"ol-item\">$1</li>");
+  // Wrap adjacent ul-items in <ul> and ol-items in <ol>
+  html = html.replace(/((?:<li class="ul-item">.*<\/li>\n?)+)/g, (match) => {
+    return "<ul>" + match.replace(/ class="ul-item"/g, "") + "</ul>";
+  });
+  html = html.replace(/((?:<li class="ol-item">.*<\/li>\n?)+)/g, (match) => {
+    return "<ol>" + match.replace(/ class="ol-item"/g, "") + "</ol>";
+  });
   html = html.replace(/^### (.+)$/gm, "<h4>$1</h4>");
   html = html.replace(/^## (.+)$/gm, "<h3>$1</h3>");
   html = html.replace(/^# (.+)$/gm, "<h2>$1</h2>");
@@ -1806,8 +1707,9 @@ function openEditMode(rowEl, index) {
   // Preserve original HTML for cancel
   const originalHTML = bubble.innerHTML;
 
+  // Build edit UI safely to prevent XSS from user content
   bubble.innerHTML = `
-    <textarea class="edit-textarea">${textToEdit}</textarea>
+    <textarea class="edit-textarea"></textarea>
     <div class="edit-actions">
       <button class="edit-btn cancel">Cancel</button>
       <button class="edit-btn save">Save & Resubmit</button>
@@ -1815,6 +1717,8 @@ function openEditMode(rowEl, index) {
   `;
 
   const textarea = bubble.querySelector(".edit-textarea");
+  // Set value programmatically — prevents XSS from </textarea> injection
+  textarea.value = textToEdit;
   textarea.focus();
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
@@ -2014,16 +1918,26 @@ function updateModelAccentColor() {
 }
 
 // ── One-Time Personality Intro Popup ──
-auth.onAuthStateChanged((user) => {
-  if (!user) return;
-  const seenKey = `personality_intro_seen_${user.uid}`;
-  if (!localStorage.getItem(seenKey)) {
-    setTimeout(() => {
-      openPersonalityModal();
-      localStorage.setItem(seenKey, "true");
-    }, 1500);
-  }
-});
+// NOTE: Merged into the main onAuthStateChanged listener would be ideal,
+// but to minimize diff risk we guard against the redirect race by checking
+// that we're actually on the chat page before opening the modal.
+(function initPersonalityIntro() {
+  // Use a one-shot listener that piggybacks on the existing auth state
+  const unsubPersonality = auth.onAuthStateChanged((user) => {
+    if (!user) return;
+    // Only show on chat page to avoid race with auth redirect
+    if (!window.location.pathname.includes('chat')) return;
+    const seenKey = `personality_intro_seen_${user.uid}`;
+    if (!localStorage.getItem(seenKey)) {
+      setTimeout(() => {
+        openPersonalityModal();
+        localStorage.setItem(seenKey, "true");
+      }, 1500);
+    }
+    // Unsubscribe after first fire — no need to keep listening
+    unsubPersonality();
+  });
+})();
 
 // ── Code Preview (Artifact) Logic ──
 window.previewCode = function(btn) {
@@ -2120,3 +2034,85 @@ window.downloadCodePreview = function() {
   
   showToast("Code downloaded successfully!", "success");
 };
+
+// ── Web Speech API (Voice Input) ──
+const micBtn = document.getElementById("mic-btn");
+if (micBtn) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  
+  if (SpeechRecognition) {
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    
+    let isRecording = false;
+
+    recognition.onstart = () => {
+      isRecording = true;
+      micBtn.classList.add("recording");
+      chatInput.placeholder = "Listening...";
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+
+      if (finalTranscript) {
+        const currentVal = chatInput.value;
+        chatInput.value = currentVal ? currentVal + " " + finalTranscript : finalTranscript;
+        // Adjust height if necessary
+        chatInput.style.height = 'auto';
+        chatInput.style.height = (chatInput.scrollHeight) + 'px';
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      isRecording = false;
+      micBtn.classList.remove("recording");
+      chatInput.placeholder = "Ask Aura anything...";
+      if (event.error !== 'no-speech') {
+        let errorMsg = "Microphone error: " + event.error;
+        if (event.error === 'not-allowed') {
+          errorMsg = "Please allow microphone access in your browser settings.";
+        } else if (event.error === 'network') {
+          errorMsg = "Voice input requires an active internet connection.";
+        } else if (event.error === 'audio-capture') {
+          errorMsg = "No microphone found. Please check your hardware.";
+        }
+        showToast(errorMsg, "error");
+      }
+    };
+
+    recognition.onend = () => {
+      isRecording = false;
+      micBtn.classList.remove("recording");
+      chatInput.placeholder = "Ask Aura anything...";
+    };
+
+    micBtn.addEventListener("click", () => {
+      if (isRecording) {
+        recognition.stop();
+      } else {
+        try {
+          recognition.start();
+        } catch(e) {
+          console.error(e);
+        }
+      }
+    });
+  } else {
+    micBtn.addEventListener("click", () => {
+      showToast("Voice input is not supported in this browser.", "error");
+    });
+  }
+}
