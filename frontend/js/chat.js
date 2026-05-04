@@ -460,6 +460,10 @@ if (modelOptions) {
       if (currentModelName === 'Aura 1') currentModelNameEl.style.color = '#00dbe9';
       else if (currentModelName === 'Aura 2') currentModelNameEl.style.color = '#4caf50';
       else if (currentModelName === 'Aura Coder') currentModelNameEl.style.color = '#dcb8ff';
+      else if (currentModelName === 'Aura imagin') currentModelNameEl.style.color = '#ff9800';
+      
+      // Update active indicator in dropdown
+      updateActiveModelIndicator(currentModelName);
       
       updateDynamicTheme(currentModelName);
       closeModelDropdown();
@@ -488,6 +492,11 @@ function updateDynamicTheme(modelName) {
       blob1: "#7701d0", // Deep Purple
       blob2: "#dcb8ff", // Lavender
       blob3: "#6366f1"  // Indigo
+    },
+    "Aura imagin": {
+      blob1: "#ff9800", // Orange
+      blob2: "#ff5722", // Deep Orange
+      blob3: "#ffc107"  // Amber
     }
   };
 
@@ -500,6 +509,21 @@ function updateDynamicTheme(modelName) {
 
 // Initialize theme on load
 updateDynamicTheme(currentModelName);
+
+// ── Active Model Indicator ──
+function updateActiveModelIndicator(activeModelName) {
+  modelOptions.forEach(option => {
+    const name = option.getAttribute('data-name');
+    if (name === activeModelName) {
+      option.classList.add('active');
+    } else {
+      option.classList.remove('active');
+    }
+  });
+}
+
+// Initialize active indicator on load
+updateActiveModelIndicator(currentModelName);
 
 // window so onclick from html works
 window.loadSession = loadSession;
@@ -519,7 +543,22 @@ function saveSession() {
   if (conversationHistory.length === 0) return;
   
   try {
-    localStorage.setItem(`chat_${currentChatId}`, JSON.stringify(conversationHistory));
+    // (#20) Strip base64 image data before persisting to save localStorage space
+    const stripped = conversationHistory.map(msg => {
+      if (Array.isArray(msg.content)) {
+        return {
+          ...msg,
+          content: msg.content.map(block => {
+            if (block.type === 'image_url' && block.image_url?.url?.startsWith('data:')) {
+              return { type: 'image_url', image_url: { url: '[image_stripped]' } };
+            }
+            return block;
+          })
+        };
+      }
+      return msg;
+    });
+    localStorage.setItem(`chat_${currentChatId}`, JSON.stringify(stripped));
     
     let index = getHistoryIndex();
     let existing = index.find(c => c.id === currentChatId);
@@ -534,7 +573,7 @@ function saveSession() {
       } else {
         firstMsg = "Attachment Chat";
       }
-      index.push({ id: currentChatId, title: firstMsg, updatedAt: Date.now() });
+      index.push({ id: currentChatId, title: firstMsg, updatedAt: Date.now(), model: currentModelName });
     }
     
     // Sort by newest
@@ -547,6 +586,36 @@ function saveSession() {
   } catch (e) {
     console.warn("Could not save session to local storage (likely quota exceeded):", e);
   }
+}
+
+// (#2) Auto-rename chat title after first AI response
+function autoRenameChat(aiResponse) {
+  const index = getHistoryIndex();
+  const entry = index.find(c => c.id === currentChatId);
+  if (!entry || entry._renamed) return;
+  
+  // Simple client-side heuristic: extract first sentence or key phrase
+  const text = typeof aiResponse === 'string' ? aiResponse : '';
+  const userMsg = conversationHistory.find(m => m.role === 'user');
+  let userText = '';
+  if (userMsg) {
+    userText = typeof userMsg.content === 'string' ? userMsg.content : 
+               (Array.isArray(userMsg.content) ? (userMsg.content.find(c => c.type === 'text')?.text || '') : '');
+  }
+  
+  // Use the user message to generate a better title (max 40 chars)
+  let title = userText.trim();
+  // Remove filler words at the start
+  title = title.replace(/^(hey|hi|hello|can you|please|help me|i need|i want)\s+/i, '');
+  // Capitalize first letter
+  title = title.charAt(0).toUpperCase() + title.slice(1);
+  // Truncate
+  if (title.length > 40) title = title.slice(0, 40) + '...';
+  if (title.length < 3) return; // too short to rename
+  
+  entry.title = title;
+  entry._renamed = true;
+  saveHistoryIndex(index);
 }
 
 function loadSession(id) {
@@ -603,6 +672,18 @@ function loadSession(id) {
   scrollToBottom(true);
   closeHistoryModal();
   if (drawerToggle) drawerToggle.checked = false; // close drawer
+  
+  // (#10) Show model warning if chat was with a different model
+  const histIndex = getHistoryIndex();
+  const chatEntry = histIndex.find(c => c.id === id);
+  if (chatEntry?.model) showModelWarning(chatEntry.model);
+  
+  // (#6) Apply syntax highlighting to loaded code blocks
+  if (window.hljs) {
+    document.querySelectorAll('pre code').forEach(block => {
+      hljs.highlightElement(block);
+    });
+  }
 }
 
 function deleteSession(id) {
@@ -626,6 +707,7 @@ function deleteAllHistory() {
   createNewChat();
   loadHistoryIndex();
   closeDeleteHistoryModal();
+  showToast('All history cleared', 'success'); // (#4)
 }
 
 const deleteAllHistoryBtn = document.getElementById("delete-all-history-btn");
@@ -665,7 +747,19 @@ if (confirmDeleteHistoryBtn) {
   confirmDeleteHistoryBtn.addEventListener("click", deleteAllHistory);
 }
 
-function createNewChat() {
+// (#3) Undo snackbar state
+let _undoSnackbarTimeout = null;
+let _previousChatId = null;
+let _previousHistory = null;
+
+function createNewChat(skipUndo = false) {
+  // If there's an active conversation, offer undo (#3)
+  if (!skipUndo && conversationHistory.length > 0) {
+    _previousChatId = currentChatId;
+    _previousHistory = [...conversationHistory];
+    showUndoSnackbar();
+  }
+  
   currentChatId = generateId();
   conversationHistory = [];
   chatMessages.innerHTML = "";
@@ -677,11 +771,65 @@ function createNewChat() {
   if (heroSection) heroSection.style.display = "";
   if (emptyState) emptyState.style.display = "flex";
   
+  // Render Dynamic Category Chips based on current model
+  renderSuggestionChips();
+  
+  // Show empty state CTA
+  const ctaEl = document.getElementById('empty-state-cta');
+  if (ctaEl) ctaEl.style.display = '';
+  
   if (drawerToggle) drawerToggle.checked = false;
   
   isStreaming = false;
   updateSendButton(false);
   setOrbState('idle');
+}
+
+// (#3) Undo Snackbar
+function showUndoSnackbar() {
+  let snackbar = document.getElementById('undo-snackbar');
+  if (!snackbar) {
+    snackbar = document.createElement('div');
+    snackbar.id = 'undo-snackbar';
+    snackbar.className = 'undo-snackbar';
+    snackbar.innerHTML = '<span>New chat started</span><button class="undo-snackbar-btn" id="undo-new-chat-btn">Undo</button>';
+    document.body.appendChild(snackbar);
+    document.getElementById('undo-new-chat-btn').addEventListener('click', undoNewChat);
+  }
+  if (_undoSnackbarTimeout) clearTimeout(_undoSnackbarTimeout);
+  requestAnimationFrame(() => snackbar.classList.add('show'));
+  _undoSnackbarTimeout = setTimeout(() => {
+    snackbar.classList.remove('show');
+    _previousChatId = null;
+    _previousHistory = null;
+  }, 4000);
+}
+
+function undoNewChat() {
+  if (!_previousChatId || !_previousHistory) return;
+  currentChatId = _previousChatId;
+  conversationHistory = _previousHistory;
+  _previousChatId = null;
+  _previousHistory = null;
+  
+  // Rebuild DOM
+  chatMessages.innerHTML = '';
+  if (heroSection) heroSection.style.display = 'none';
+  if (emptyState) emptyState.style.display = 'none';
+  conversationHistory.forEach((msg, idx) => {
+    if (msg.role === 'assistant') {
+      appendMessage('ai', msg.content || '', idx);
+    } else {
+      let htmlContent = typeof msg.content === 'string' ? escapeHtml(msg.content) : '[Attachment]';
+      appendMessage('user', htmlContent, idx, true);
+    }
+  });
+  scrollToBottom(true);
+  
+  const snackbar = document.getElementById('undo-snackbar');
+  if (snackbar) snackbar.classList.remove('show');
+  if (_undoSnackbarTimeout) clearTimeout(_undoSnackbarTimeout);
+  showToast('Chat restored', 'success');
 }
 
 // ── UI Modal & Navigation ──
@@ -711,26 +859,58 @@ function openHistoryModal() {
     historyModalContent.classList.remove("translate-y-full");
   }, 10);
   if (drawerToggle) drawerToggle.checked = false;
+  // (#19) Focus trap
+  trapFocus(historyModalContent);
+  // (#22) ARIA
+  historyModal.setAttribute('role', 'dialog');
+  historyModal.setAttribute('aria-modal', 'true');
+  historyModal.setAttribute('aria-label', 'Chat history');
+  // Focus the search input
+  const searchInput = document.getElementById('history-search-input');
+  if (searchInput) setTimeout(() => searchInput.focus(), 100);
 }
 
 function closeHistoryModal() {
   historyModal.classList.add("opacity-0");
-  // Mobile: slide back down; Desktop: scale out
-  historyModalContent.classList.add("translate-y-full");
+  // Mobile: slide back down; Desktop: scale out (no translate on desktop)
+  if (window.innerWidth < 640) {
+    historyModalContent.classList.add("translate-y-full");
+  }
   historyModalContent.classList.add("scale-95");
+  // (#19) Release focus trap
+  releaseFocusTrap(historyModalContent);
+  // Clear search
+  const searchInput = document.getElementById('history-search-input');
+  if (searchInput) searchInput.value = '';
   setTimeout(() => {
     historyModal.classList.add("hidden");
     historyModal.classList.remove("flex");
+    // Reset translate for next open
+    historyModalContent.classList.remove("translate-y-full");
   }, 300);
 }
 
 if (navHistoryBtn) navHistoryBtn.addEventListener("click", openHistoryModal);
 if (closeHistoryBtn) closeHistoryBtn.addEventListener("click", closeHistoryModal);
 
+// (#1) History Search
+const historySearchInput = document.getElementById('history-search-input');
+if (historySearchInput) {
+  historySearchInput.addEventListener('input', () => {
+    const query = historySearchInput.value.trim().toLowerCase();
+    loadHistoryIndex(query);
+  });
+}
 
 
-function loadHistoryIndex() {
-  const index = getHistoryIndex();
+
+function loadHistoryIndex(searchQuery = '') {
+  let index = getHistoryIndex();
+  
+  // (#1) Filter by search query
+  if (searchQuery) {
+    index = index.filter(chat => chat.title.toLowerCase().includes(searchQuery));
+  }
   historyListContainer.innerHTML = "";
   
   if (index.length === 0) {
@@ -858,6 +1038,9 @@ function sendMessage() {
   if (fileInput) fileInput.value = "";
   renderAttachments();
   
+  // (#17) Haptic feedback on send
+  if (navigator.vibrate) navigator.vibrate(10);
+  
   // Start AI response
   getAuraResponse(hadImageAttachment);
 }
@@ -926,6 +1109,67 @@ if (categoryChipsContainer) {
     }
   });
 }
+
+function renderSuggestionChips() {
+  if (!categoryChipsContainer) return;
+  categoryChipsContainer.innerHTML = '';
+  
+  let chips = [];
+  
+  if (currentModelName === 'Aura Coder') {
+    chips = [
+      { icon: 'code_blocks', text: 'React', prompt: 'Write a modern React functional component with Tailwind styling', color: '#00dbe9' },
+      { icon: 'bug_report', text: 'Debug', prompt: 'Help me debug a memory leak in my Node.js application', color: '#ffb4ab' },
+      { icon: 'api', text: 'API', prompt: 'Design a RESTful API structure for an e-commerce platform', color: '#4caf50' },
+      { icon: 'design_services', text: 'UI/UX', prompt: 'Write HTML and CSS for a sleek, responsive landing page', color: '#dcb8ff' },
+      { icon: 'speed', text: 'Optimize', prompt: 'How can I optimize the performance of my JavaScript loops?', color: '#ff9800' },
+      { icon: 'data_object', text: 'Algorithms', prompt: 'Explain how the QuickSort algorithm works with an example in Python', color: '#00bcd4' }
+    ];
+  } else if (currentModelName === 'Aura imagin') {
+    chips = [
+      { icon: 'lightbulb', text: 'Cyberpunk', prompt: 'A neon-lit cyberpunk city skyline at night in the rain, highly detailed', color: '#00dbe9' },
+      { icon: 'brush', text: 'Abstract', prompt: 'An abstract painting with flowing vibrant colors and deep contrasts', color: '#e91e63' },
+      { icon: 'nature', text: 'Fantasy', prompt: 'A mystical forest with glowing mushrooms and ancient ruins', color: '#4caf50' },
+      { icon: 'person', text: 'Portrait', prompt: 'A hyper-realistic portrait of an astronaut looking at the stars', color: '#dcb8ff' },
+      { icon: '3d_rotation', text: 'Isometric', prompt: 'A cute 3D isometric illustration of a cozy developer workspace', color: '#ff9800' },
+      { icon: 'star', text: 'Logo', prompt: 'A minimalist vector logo of a futuristic AI company called Synapse', color: '#00bcd4' }
+    ];
+  } else {
+    // Default / Aura 1 / Aura 2
+    chips = [
+      { icon: 'science', text: 'Science', prompt: 'Explain quantum physics in simple terms', color: '#00dbe9' },
+      { icon: 'code', text: 'Code', prompt: 'Write a modern responsive landing page with HTML, CSS & JS', color: '#dcb8ff' },
+      { icon: 'school', text: 'Study', prompt: 'Help me study for my math exam — quiz me on calculus', color: '#4caf50' },
+      { icon: 'edit_note', text: 'Writing', prompt: 'Write a short creative story about a time traveler', color: '#ff9800' },
+      { icon: 'calculate', text: 'Math', prompt: 'Solve this math problem step by step: integrate x^2 * e^x dx', color: '#e91e63' },
+      { icon: 'forum', text: 'Debate', prompt: 'Debate: Is AI a threat to humanity? Take the opposing side', color: '#00bcd4' }
+    ];
+  }
+  
+  chips.forEach(chip => {
+    const btn = document.createElement('button');
+    btn.className = 'category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-white/5 border border-outline-variant/20 text-on-surface-variant text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95';
+    btn.dataset.prompt = chip.prompt;
+    
+    // Add hover color dynamically
+    btn.onmouseover = () => {
+      btn.style.borderColor = chip.color + '4D'; // 30% opacity
+      btn.style.color = chip.color;
+      btn.style.backgroundColor = chip.color + '1A'; // 10% opacity
+    };
+    btn.onmouseout = () => {
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      btn.style.backgroundColor = '';
+    };
+    
+    btn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;">${chip.icon}</span> ${chip.text}`;
+    categoryChipsContainer.appendChild(btn);
+  });
+}
+
+// Call on initial load
+renderSuggestionChips();
 
 
 // ── Orb State Management ──
@@ -1000,7 +1244,8 @@ if (scrollToBottomBtn) {
 }
 
 // ── Image Lightbox ──
-window.closeLightbox = function() {
+window.closeLightbox = function(event) {
+  if (event && event.stopPropagation) event.stopPropagation();
   const modal = document.getElementById("image-lightbox-modal");
   if (!modal) return;
   modal.style.opacity = "0";
@@ -1029,12 +1274,51 @@ window.openLightbox = function(src) {
   }, 10);
 };
 
-// Close lightbox on Escape key — guard against modal inputs
+window.downloadLightboxImage = function() {
+  const img = document.getElementById("lightbox-img");
+  if (!img || !img.src) return;
+  
+  const a = document.createElement("a");
+  a.href = img.src;
+  a.download = `Aura_Image_${Date.now()}.jpg`; // Default filename
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
+// Close lightbox on Escape key — only if no higher z-index modal is open
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    const active = document.activeElement;
-    const isInInput = active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT");
-    if (!isInInput) closeLightbox();
+    // Priority: code preview (z:200) > lightbox (z:150) > history/settings (z:100)
+    const codePreview = document.getElementById("code-preview-modal");
+    if (codePreview && !codePreview.classList.contains("hidden")) {
+      window.closeCodePreview();
+      return;
+    }
+    
+    const lightboxModal = document.getElementById("image-lightbox-modal");
+    if (lightboxModal && !lightboxModal.classList.contains("hidden")) {
+      closeLightbox();
+      return;
+    }
+    
+    const settingsM = document.getElementById("settings-modal");
+    if (settingsM && !settingsM.classList.contains("hidden")) {
+      closeSettings();
+      return;
+    }
+    
+    const historyM = document.getElementById("history-modal");
+    if (historyM && !historyM.classList.contains("hidden")) {
+      closeHistoryModal();
+      return;
+    }
+    
+    const deleteM = document.getElementById("delete-history-modal");
+    if (deleteM && !deleteM.classList.contains("hidden")) {
+      closeDeleteHistoryModal();
+      return;
+    }
   }
 });
 
@@ -1121,9 +1405,16 @@ async function getAuraResponse(hadImage = false) {
             if (!reasoningEl) {
               reasoningEl = document.createElement("details");
               reasoningEl.className = "thinking-block";
-              reasoningEl.innerHTML = `<summary><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">psychology</span>Thinking...</summary><div class="thinking-content"></div>`;
+              reasoningEl.innerHTML = `<summary><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">psychology</span>Thinking...<span class="deep-think-timer" style="margin-left:auto;font-size:0.7rem;color:rgba(220,184,255,0.5);font-weight:500;"></span></summary><div class="deep-think-progress"></div><div class="thinking-content"></div>`;
               reasoningEl.open = true;
               bubbleEl.prepend(reasoningEl);
+              // Start a timer to show elapsed time
+              reasoningEl._startTime = Date.now();
+              reasoningEl._timer = setInterval(() => {
+                const elapsed = Math.round((Date.now() - reasoningEl._startTime) / 1000);
+                const timerEl = reasoningEl.querySelector(".deep-think-timer");
+                if (timerEl) timerEl.textContent = `${elapsed}s`;
+              }, 1000);
             }
             reasoningEl.querySelector(".thinking-content").innerHTML = renderMarkdown(fullReasoning);
             scrollToBottom();
@@ -1131,10 +1422,19 @@ async function getAuraResponse(hadImage = false) {
 
           if (data.content) {
             fullContent += data.content;
-            // Close reasoning block when content starts
-            if (reasoningEl && reasoningEl.open) {
-              reasoningEl.open = false;
-              reasoningEl.querySelector("summary").innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">psychology</span>View reasoning`;
+            // When content starts, stop the reasoning progress bar but keep block OPEN
+            if (reasoningEl) {
+              const progressBar = reasoningEl.querySelector(".deep-think-progress");
+              if (progressBar) progressBar.remove();
+              // Update summary text to show it's done reasoning
+              const summary = reasoningEl.querySelector("summary");
+              if (summary && !reasoningEl._contentStarted) {
+                reasoningEl._contentStarted = true;
+                // Stop the timer
+                if (reasoningEl._timer) { clearInterval(reasoningEl._timer); reasoningEl._timer = null; }
+                const elapsed = Math.round((Date.now() - reasoningEl._startTime) / 1000);
+                summary.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">psychology</span>Thought for ${elapsed}s`;
+              }
             }
             // Render content after the reasoning block
             let contentContainer = bubbleEl.querySelector(".answer-content");
@@ -1154,6 +1454,16 @@ async function getAuraResponse(hadImage = false) {
     }
 
     // Finalize: remove typing cursor, wire lightbox, append action bar
+    // Now collapse reasoning block after stream is fully complete
+    if (reasoningEl) {
+      if (reasoningEl._timer) { clearInterval(reasoningEl._timer); reasoningEl._timer = null; }
+      reasoningEl.open = false;
+      const summary = reasoningEl.querySelector("summary");
+      if (summary) {
+        const elapsed = Math.round((Date.now() - (reasoningEl._startTime || Date.now())) / 1000);
+        summary.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">psychology</span>View reasoning (${elapsed}s)`;
+      }
+    }
     const answerEl = bubbleEl.querySelector(".answer-content");
     if (answerEl) {
       answerEl.innerHTML = renderMarkdown(fullContent);
@@ -1166,6 +1476,16 @@ async function getAuraResponse(hadImage = false) {
 
     conversationHistory.push({ role: "assistant", content: fullContent });
     saveSession();
+    
+    // (#2) Auto-rename the chat title after first AI response
+    autoRenameChat(fullContent);
+    
+    // (#6) Apply syntax highlighting to code blocks
+    if (window.hljs && bubbleEl) {
+      bubbleEl.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+      });
+    }
   } catch (err) {
     console.error("Chat error:", err);
     if (typingEl && typingEl.parentNode) typingEl.remove();
@@ -1269,10 +1589,18 @@ function appendActionBar(bubbleEl, content) {
     getAuraResponse();
   };
 
+  // (#8) Export button
+  const exportBtn = document.createElement("button");
+  exportBtn.className = "action-btn";
+  exportBtn.title = "Export chat";
+  exportBtn.innerHTML = '<span class="material-symbols-outlined">download</span>';
+  exportBtn.onclick = () => exportCurrentChat();
+
   bar.appendChild(copyBtn);
   bar.appendChild(thumbUpBtn);
   bar.appendChild(thumbDownBtn);
   bar.appendChild(retryBtn);
+  bar.appendChild(exportBtn);
   bubbleEl.appendChild(bar);
 }
 
@@ -1362,7 +1690,7 @@ function appendMessage(role, content, explicitIndex = -1, isRawHtmlForUser = fal
   return { rowEl: row, bubbleEl: bubble };
 }
 
-// ── Typing Indicator ──
+// ── Typing Indicator (#16 — Skeleton Shimmer) ──
 function showTypingIndicator(hadImage = false) {
   const row = document.createElement("div");
   row.className = "message-row ai";
@@ -1372,22 +1700,28 @@ function showTypingIndicator(hadImage = false) {
   avatar.className = "message-avatar ai-avatar";
   avatar.innerHTML = "✦";
 
-  const typing = document.createElement("div");
-  typing.className = "typing-indicator";
-  
   // Smart typing text
-  let typingText = "Aura is thinking...";
+  let typingText = "Aura is thinking";
   if (hadImage) {
-    typingText = "Aura is analyzing image...";
+    typingText = "Analyzing image";
+  } else if (currentModelName === "Aura imagin") {
+    typingText = "Generating image";
   } else if (currentModelName === "Aura 1" && aura1Mode === "deep_think") {
-    typingText = "Aura is reasoning deeply...";
+    typingText = "Reasoning deeply";
   }
   
+  const typing = document.createElement("div");
+  typing.className = "typing-indicator-skeleton";
   typing.innerHTML = `
-    <div class="typing-dots">
-      <span></span><span></span><span></span>
+    <div class="typing-label">
+      <span class="skeleton-dot"></span>
+      <span class="skeleton-dot"></span>
+      <span class="skeleton-dot"></span>
+      <span class="typing-label-text">${typingText}</span>
     </div>
-    <span class="typing-text">${typingText}</span>
+    <div class="skeleton-line"></div>
+    <div class="skeleton-line"></div>
+    <div class="skeleton-line"></div>
   `;
 
   row.appendChild(avatar);
@@ -1555,8 +1889,31 @@ function renderMarkdown(text, isStreaming = false) {
       }
     }
 
-    // Standard code block for other languages
-    return `<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang-label">${langLabel}</span><div style="display:flex;"><button class="copy-code-btn" onclick="copyCode(this)"><span class="material-symbols-outlined" style="font-size:14px;">content_copy</span> Copy</button></div></div><pre><code class="language-${block.lang}">${escapedCodeForDisplay}</code></pre></div>`;
+    // Standard code block for other languages — (#6) use hljs class
+    return `<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang-label">${langLabel}</span><div style="display:flex;"><button class="copy-code-btn" onclick="copyCode(this)"><span class="material-symbols-outlined" style="font-size:14px;">content_copy</span> Copy</button></div></div><pre><code class="hljs language-${block.lang}">${escapedCodeForDisplay}</code></pre></div>`;
+  });
+
+  // (#5) Markdown Table Rendering
+  html = html.replace(/((?:^\|.+\|\s*(?:<br>|\n))+)/gm, (tableBlock) => {
+    const rows = tableBlock.split(/<br>|\n/).filter(r => r.trim());
+    if (rows.length < 2) return tableBlock;
+    
+    // Separate header, separator, and data rows
+    const headerRow = rows[0];
+    const dataRows = rows.filter((row, i) => i > 0 && !/^\|[\s\-:|]+\|$/.test(row.trim()));
+    
+    const parseRow = (row) => row.split('|').filter((c, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim());
+    
+    let tableHtml = '<table><thead><tr>';
+    parseRow(headerRow).forEach(cell => { tableHtml += `<th>${cell}</th>`; });
+    tableHtml += '</tr></thead><tbody>';
+    dataRows.forEach(row => {
+      tableHtml += '<tr>';
+      parseRow(row).forEach(cell => { tableHtml += `<td>${cell}</td>`; });
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</tbody></table>';
+    return tableHtml;
   });
 
   // Inline code
@@ -1882,7 +2239,216 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Model Accent Colors in selector button ──
   updateModelAccentColor();
+  updateActiveModelIndicator(currentModelName);
+  
+  // ── Header Scroll Shadow ──
+  const headerEl = document.querySelector('header');
+  if (headerEl) {
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 10) {
+        headerEl.classList.add('scrolled');
+      } else {
+        headerEl.classList.remove('scrolled');
+      }
+    }, { passive: true });
+  }
+  // (#6) Highlight existing code blocks on page load
+  if (window.hljs) {
+    document.querySelectorAll('pre code').forEach(block => {
+      hljs.highlightElement(block);
+    });
+  }
 });
+
+// (#8) Export Chat as Markdown
+function exportCurrentChat() {
+  if (conversationHistory.length === 0) {
+    showToast('No conversation to export', 'error');
+    return;
+  }
+  
+  let md = `# Synapse AI — Chat Export\n`;
+  md += `**Model:** ${currentModelName}\n`;
+  md += `**Date:** ${new Date().toLocaleDateString()}\n\n---\n\n`;
+  
+  conversationHistory.forEach(msg => {
+    const role = msg.role === 'assistant' ? '🤖 **Aura**' : '👤 **You**';
+    let content = '';
+    if (typeof msg.content === 'string') {
+      content = msg.content;
+    } else if (Array.isArray(msg.content)) {
+      const textItem = msg.content.find(c => c.type === 'text');
+      content = textItem ? textItem.text : '[Attachment]';
+    }
+    md += `${role}\n\n${content}\n\n---\n\n`;
+  });
+  
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  
+  // Use chat title for filename
+  const index = getHistoryIndex();
+  const entry = index.find(c => c.id === currentChatId);
+  const title = (entry?.title || 'chat').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+  a.download = `synapse_${title}_${Date.now()}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  showToast('Chat exported as Markdown', 'success');
+}
+window.exportCurrentChat = exportCurrentChat;
+
+// (#10) Model Warning when loading old chat with different model
+function showModelWarning(originalModel) {
+  if (!originalModel || originalModel === currentModelName) return;
+  
+  // Remove existing warning
+  const existing = document.querySelector('.model-warning-banner');
+  if (existing) existing.remove();
+  
+  const banner = document.createElement('div');
+  banner.className = 'model-warning-banner';
+  banner.innerHTML = `
+    <span class="material-symbols-outlined">info</span>
+    <span>This chat was with <strong>${originalModel}</strong></span>
+    <button onclick="switchToModel('${originalModel}'); this.closest('.model-warning-banner').remove();">Switch back</button>
+    <button onclick="this.closest('.model-warning-banner').remove();" style="background:none;border:none;color:rgba(255,200,100,0.5);padding:2px;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
+  `;
+  chatMessages.insertBefore(banner, chatMessages.firstChild);
+}
+
+window.switchToModel = function(modelName) {
+  const option = Array.from(modelOptions).find(o => o.getAttribute('data-name') === modelName);
+  if (option) option.click();
+};
+
+// (#29) PWA Install Prompt
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  showPWAInstallBanner();
+});
+
+function showPWAInstallBanner() {
+  if (localStorage.getItem('pwa_dismissed')) return;
+  
+  const drawerNav = document.querySelector('#drawer nav');
+  if (!drawerNav) return;
+  
+  // Don't add duplicate
+  if (document.querySelector('.pwa-install-banner')) return;
+  
+  const banner = document.createElement('div');
+  banner.className = 'pwa-install-banner';
+  banner.innerHTML = `
+    <div class="pwa-icon">
+      <span class="material-symbols-outlined" style="color:#fff;font-size:18px;font-variation-settings:'FILL' 1;">install_mobile</span>
+    </div>
+    <div class="pwa-text">
+      <div class="pwa-title">Install Synapse AI</div>
+      <div class="pwa-desc">Add to home screen for quick access</div>
+    </div>
+    <button class="pwa-close" onclick="event.stopPropagation(); this.closest('.pwa-install-banner').remove(); localStorage.setItem('pwa_dismissed','1');">
+      <span class="material-symbols-outlined" style="font-size:16px;">close</span>
+    </button>
+  `;
+  banner.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const result = await deferredInstallPrompt.userChoice;
+    if (result.outcome === 'accepted') {
+      showToast('Synapse AI installed!', 'success');
+    }
+    deferredInstallPrompt = null;
+    banner.remove();
+  });
+  
+  // Insert before the divider in drawer nav
+  const divider = drawerNav.querySelector('.h-px');
+  if (divider) drawerNav.insertBefore(banner, divider);
+  else drawerNav.appendChild(banner);
+}
+
+// ============================================
+// (#19) Focus Trap Utility
+// ============================================
+const _focusTrapHandlers = new WeakMap();
+
+function trapFocus(container) {
+  const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  
+  function handler(e) {
+    if (e.key !== 'Tab') return;
+    
+    const focusables = [...container.querySelectorAll(focusableSelector)].filter(el => el.offsetParent !== null);
+    if (focusables.length === 0) return;
+    
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    
+    if (e.shiftKey) {
+      if (document.activeElement === first || !container.contains(document.activeElement)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last || !container.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+  
+  _focusTrapHandlers.set(container, handler);
+  document.addEventListener('keydown', handler);
+}
+
+function releaseFocusTrap(container) {
+  const handler = _focusTrapHandlers.get(container);
+  if (handler) {
+    document.removeEventListener('keydown', handler);
+    _focusTrapHandlers.delete(container);
+  }
+}
+
+// ============================================
+// (#22) ARIA Improvements — applied once on load
+// ============================================
+(function applyAriaLabels() {
+  // Typing indicator area
+  const chatMsgs = document.getElementById('chat-messages');
+  if (chatMsgs) chatMsgs.setAttribute('aria-live', 'polite');
+  
+  // Model dropdown
+  const modelDropdown = document.getElementById('model-dropdown');
+  if (modelDropdown) {
+    modelDropdown.setAttribute('role', 'listbox');
+    modelDropdown.setAttribute('aria-label', 'AI model selection');
+    modelDropdown.querySelectorAll('.model-option').forEach(opt => {
+      opt.setAttribute('role', 'option');
+    });
+  }
+  
+  // Personality cards
+  document.querySelectorAll('.personality-card').forEach(card => {
+    card.setAttribute('role', 'button');
+    const nameEl = card.querySelector('.personality-name');
+    if (nameEl) card.setAttribute('aria-label', `Set personality to ${nameEl.textContent}`);
+  });
+  
+  // Chat input
+  const chatInputEl = document.getElementById('chat-input');
+  if (chatInputEl) chatInputEl.setAttribute('aria-label', 'Message input');
+  
+  // Send button
+  const sendBtnEl = document.getElementById('send-btn');
+  if (sendBtnEl) sendBtnEl.setAttribute('aria-label', 'Send message');
+})();
 
 // ── Toast Notification System ──
 let toastTimeout = null;
@@ -1895,7 +2461,16 @@ function showToast(message, type = 'default', duration = 2500) {
     document.body.appendChild(toast);
   }
   if (toastTimeout) clearTimeout(toastTimeout);
-  toast.textContent = message;
+  
+  // Build toast content with icon
+  let iconHtml = '';
+  if (type === 'success') {
+    iconHtml = '<span class="material-symbols-outlined toast-icon" style="font-variation-settings:\'FILL\' 1;">check_circle</span>';
+  } else if (type === 'error') {
+    iconHtml = '<span class="material-symbols-outlined toast-icon" style="font-variation-settings:\'FILL\' 1;">error</span>';
+  }
+  
+  toast.innerHTML = iconHtml + `<span>${message}</span>`;
   toast.className = `synapse-toast ${type}`;
   requestAnimationFrame(() => {
     toast.classList.add('show');
@@ -1914,6 +2489,7 @@ function updateModelAccentColor() {
   if (name === 'Aura 1') { el.style.color = '#00dbe9'; }
   else if (name === 'Aura 2') { el.style.color = '#4caf50'; }
   else if (name === 'Aura Coder') { el.style.color = '#dcb8ff'; }
+  else if (name === 'Aura imagin') { el.style.color = '#ff9800'; }
   else { el.style.color = ''; }
 }
 
@@ -2005,15 +2581,7 @@ window.closeCodePreview = function() {
   }, 300);
 };
 
-// Close preview modal on escape key
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    const previewModal = document.getElementById("code-preview-modal");
-    if (previewModal && !previewModal.classList.contains("hidden")) {
-      window.closeCodePreview();
-    }
-  }
-});
+// Close preview modal on escape key is now handled by the unified Escape handler above
 
 // ── Download Artifact ──
 window.downloadCodePreview = function() {
@@ -2079,7 +2647,7 @@ if (micBtn) {
       console.error("Speech recognition error", event.error);
       isRecording = false;
       micBtn.classList.remove("recording");
-      chatInput.placeholder = "Ask Aura anything...";
+      chatInput.placeholder = "Ask Aura";
       if (event.error !== 'no-speech') {
         let errorMsg = "Microphone error: " + event.error;
         if (event.error === 'not-allowed') {
@@ -2096,7 +2664,7 @@ if (micBtn) {
     recognition.onend = () => {
       isRecording = false;
       micBtn.classList.remove("recording");
-      chatInput.placeholder = "Ask Aura anything...";
+      chatInput.placeholder = "Ask Aura";
     };
 
     micBtn.addEventListener("click", () => {

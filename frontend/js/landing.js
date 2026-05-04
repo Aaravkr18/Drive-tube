@@ -162,3 +162,34 @@ document.addEventListener('mousemove', (e) => {
 });
 
 console.log('Synapse AI Landing Page Online.');
+
+// ── (#14) Mobile Hamburger Menu ──
+(function() {
+  const menuBtn = document.getElementById('mobile-menu-btn');
+  const overlay = document.getElementById('mobile-nav-overlay');
+  const closeBtn = document.getElementById('mobile-nav-close');
+  
+  if (!menuBtn || !overlay) return;
+  
+  menuBtn.addEventListener('click', () => {
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('open'));
+  });
+  
+  function closeMenu() {
+    overlay.classList.remove('open');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+  }
+  
+  if (closeBtn) closeBtn.addEventListener('click', closeMenu);
+  
+  // Close on link click
+  overlay.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', closeMenu);
+  });
+  
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeMenu();
+  });
+})();

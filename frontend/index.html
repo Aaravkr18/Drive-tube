@@ -14,6 +14,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <link rel="manifest" href="/manifest.json" />
+    <!-- (#21) Preload critical fonts -->
+    <link rel="preload" href="https://fonts.gstatic.com/s/outfit/v11/QGYyz_MVcBeNP4NjuGObqx1XmO1I4e.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/css/landing.css" />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
@@ -42,8 +44,11 @@
         <div class="nav-links">
           <a href="#features" class="nav-link">Features</a>
           <a href="#models" class="nav-link">Models</a>
-          <a href="#pricing" class="nav-link">Pricing</a>
           <a href="/login.html" class="btn btn-primary glass-btn" id="nav-launch-btn">Launch Aura</a>
+          <!-- (#14) Hamburger Menu -->
+          <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu">
+            <span class="material-symbols-outlined" style="font-size:28px;">menu</span>
+          </button>
         </div>
       </nav>
 
@@ -76,17 +81,17 @@
         <div class="feature-card glass reveal">
           <div style="font-size: 2rem; color: #00dbe9; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">hub</span></div>
           <h3>Multi-LLM Engine</h3>
-          <p>Switch between Aura 1, 2, and Coder models instantly.</p>
-        </div>
-        <div class="feature-card glass reveal">
-          <div style="font-size: 2rem; color: #dcb8ff; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">blur_on</span></div>
-          <h3>Liquid Glass UI</h3>
-          <p>A transcendent design language that feels alive.</p>
+          <p>Switch between Aura 1, 2, Coder, and imagin models instantly.</p>
         </div>
         <div class="feature-card glass reveal">
           <div style="font-size: 2rem; color: #4caf50; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">psychology</span></div>
           <h3>Aura Intelligence</h3>
           <p>A personal assistant that adapts to your workflow.</p>
+        </div>
+        <div class="feature-card glass reveal">
+          <div style="font-size: 2rem; color: #ff9800; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">auto_awesome</span></div>
+          <h3>Multimodal AI</h3>
+          <p>Analyze images, audio, and video effortlessly, or generate stunning visual art with Aura imagin.</p>
         </div>
       </section>
 
@@ -117,48 +122,22 @@
           <h3>Aura Coder</h3>
           <p>A world-class programming expert. Gets full, production-ready code with modern UI in any language or framework.</p>
         </div>
-      </section>
-
-      <!-- Pricing Section -->
-      <section id="pricing" class="pricing-section">
-        <h2 class="section-title reveal">Simple, Transparent Pricing</h2>
-        <div class="pricing-grid">
-          <!-- Basic Tier -->
-          <div class="pricing-card glass reveal">
-            <h3 class="pricing-tier">Basic</h3>
-            <div class="pricing-price">$0<span>/mo</span></div>
-            <p class="pricing-desc">Perfect for trying out Aura's capabilities.</p>
-            <ul class="pricing-features">
-              <li><span class="material-symbols-outlined check-icon" style="color: #dcb8ff; font-weight: 800;">auto_awesome</span> <strong>You get everything</strong></li>
-              <li><span class="material-symbols-outlined check-icon">check_circle</span> Access to Aura 1, 2 & Coder</li>
-              <li><span class="material-symbols-outlined check-icon">check_circle</span> Vision & Image Analysis</li>
-              <li><span class="material-symbols-outlined check-icon">check_circle</span> Deep Reasoning (Deep Think)</li>
-              <li><span class="material-symbols-outlined check-icon">check_circle</span> Hinglish & Bilingual Support</li>
-              <li><span class="material-symbols-outlined check-icon">check_circle</span> Advanced Code Generation</li>
-              <li><span class="material-symbols-outlined check-icon">check_circle</span> Unlimited SSE Streaming</li>
-            </ul>
-            <a href="/login.html" class="btn btn-secondary glass-btn w-full" id="pricing-basic-btn">Get Started</a>
+        <div class="feature-card model-card glass reveal">
+          <div class="model-card-header">
+            <span class="model-icon" style="color:#ff9800;">✦</span>
+            <span class="model-tag">Creative</span>
           </div>
-
-          <!-- Pro Tier -->
-          <div class="pricing-card glass-heavy popular-tier reveal">
-            <div class="popular-badge">Most Popular</div>
-            <h3 class="pricing-tier">Pro</h3>
-            <div class="pricing-price">$100<span>/mo</span></div>
-            <p class="pricing-desc">For power users who need more intelligence.</p>
-            <ul class="pricing-features">
-              <li><span class="material-symbols-outlined check-icon" style="color: #00dbe9; font-weight: 800;">verified</span> <strong>You also get everything</strong></li>
-            </ul>
-            <a href="/login.html" class="btn btn-primary glass-btn-heavy w-full" id="pricing-pro-btn">Upgrade to Pro</a>
-          </div>
-
+          <h3>Aura imagin</h3>
+          <p>An AI image generator that turns your text prompts into stunning visuals — from concept art to photorealistic scenes.</p>
         </div>
       </section>
+
+
 
       <!-- Stats Ribbon -->
       <section class="stats-ribbon reveal">
         <div class="stat-item">
-          <span class="stat-number">3</span>
+          <span class="stat-number">6</span>
           <span class="stat-label">AI Models</span>
         </div>
         <div class="stat-divider"></div>
@@ -183,7 +162,6 @@
           <div class="footer-links">
             <a href="#features" class="footer-link">Features</a>
             <a href="#models" class="footer-link">Models</a>
-            <a href="#pricing" class="footer-link">Pricing</a>
             <a href="/login.html" class="footer-link" id="footer-launch-btn">Launch Aura</a>
           </div>
         </div>
@@ -192,6 +170,16 @@
           <p>© 2026 Synapse AI. All rights reserved.</p>
         </div>
       </footer>
+
+      <!-- (#14) Mobile Navigation Overlay -->
+      <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <button class="mobile-nav-close" id="mobile-nav-close" aria-label="Close menu">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#models" class="nav-link">Models</a>
+        <a href="/login.html" class="btn btn-primary glass-btn" style="margin-top:1rem;">Launch Aura</a>
+      </div>
     </div>
 
     <!-- Auth Modal Overlay -->

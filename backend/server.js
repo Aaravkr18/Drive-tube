@@ -1,12 +1,12 @@
 // ============================================
 // Synapse AI — Express Backend Server
 // ============================================
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const express = require("express");
 const cors = require("cors");
 const OpenAI = require("openai");
 const admin = require("firebase-admin");
-const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -94,12 +94,17 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     return res.status(400).json({ error: "Messages array is required" });
   }
 
-  // Check if any message in the conversation contains an image
+  // Check if any message in the conversation contains an image, audio, or video
   let hasImage = false;
+  let hasAudioVideo = false;
   for (const msg of messages) {
-    if (Array.isArray(msg.content) && msg.content.some(block => block.type === "image_url")) {
-      hasImage = true;
-      break;
+    if (Array.isArray(msg.content)) {
+      if (msg.content.some(block => block.type === "image_url")) {
+        hasImage = true;
+      }
+      if (msg.content.some(block => ["audio_url", "video_url", "input_audio"].includes(block.type))) {
+        hasAudioVideo = true;
+      }
     }
   }
 
@@ -113,6 +118,8 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     activeApiKey = process.env.GPT_OSS_120B_API_KEY;
   } else if (targetModel === "stepfun-ai/step-3.5-flash") {
     activeApiKey = process.env.STEP_FLASH_API_KEY;
+  } else if (targetModel === "qwen-image") {
+    activeApiKey = process.env.QWEN_API_KEY || process.env.DEFAULT_API_KEY;
   } else {
     // Default fallback if unsupported model passed
     activeApiKey = process.env.DEFAULT_API_KEY;
@@ -123,6 +130,10 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     targetModel = "mistralai/mistral-large-3-675b-instruct-2512";
     activeApiKey = process.env.VISION_API_KEY;
     console.log("[VISION] Image detected — routing to Mistral Large 3 675B");
+  } else if (hasAudioVideo) {
+    targetModel = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
+    activeApiKey = process.env.NVIDIA_API_KEY || process.env.AUDIO_VIDEO_API_KEY || process.env.DEFAULT_API_KEY;
+    console.log(`[AUDIO/VIDEO] Audio/Video detected — routing to ${targetModel}`);
   }
 
   if (!activeApiKey) {
@@ -144,9 +155,59 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
   try {
     console.log(`[DEBUG] Routing request to: ${targetModel}`);
 
+    if (targetModel === "qwen-image") {
+      // Find the last user message to use as the prompt
+      const lastMsg = messages.slice().reverse().find(m => m.role === "user");
+      let promptText = "A beautiful AI generated image";
+      if (lastMsg) {
+        if (typeof lastMsg.content === "string") promptText = lastMsg.content;
+        else if (Array.isArray(lastMsg.content)) promptText = lastMsg.content.find(c => c.type === "text")?.text || promptText;
+      }
+
+      console.log(`[IMAGE] Generating image for prompt: "${promptText}"`);
+      
+      const nvImgResponse = await fetch("https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${activeApiKey}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          prompt: promptText,
+          seed: 0,
+          steps: 4,
+          cfg_scale: 0,
+          samples: 1,
+          height: 1024,
+          width: 1024
+        })
+      });
+
+      if (!nvImgResponse.ok) {
+        throw new Error(`Image API error: ${nvImgResponse.status} ${nvImgResponse.statusText}`);
+      }
+
+      const imgData = await nvImgResponse.json();
+      if (!imgData.artifacts || !imgData.artifacts[0] || !imgData.artifacts[0].base64) {
+        throw new Error("Invalid response from Image API: missing artifacts");
+      }
+
+      // Convert base64 to a data URL
+      const imageUrl = `data:image/jpeg;base64,${imgData.artifacts[0].base64}`;
+      
+      // Simulate streaming for the frontend UI by sending it as a single chunk
+      res.write(`data: ${JSON.stringify({ content: `![Generated Image](${imageUrl})` })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+      return;
+    }
+
     const systemPromptText = hasImage 
       ? "You are Aura, a helpful AI vision assistant by Synapse AI. You MUST look at the image carefully and describe/analyze/solve whatever is shown. If it is a math or science problem, solve it step by step. Always respond as if you can clearly see the image."
-      : (persona || AURA_SYSTEM_PROMPT);
+      : (hasAudioVideo 
+          ? "You are Aura, a helpful AI multimodal assistant by Synapse AI. You MUST analyze the provided audio or video carefully and answer questions based on its content. Always respond as if you can clearly hear/see the media."
+          : (persona || AURA_SYSTEM_PROMPT));
 
     let apiMessages = messages;
     
@@ -185,6 +246,14 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     if (targetModel === "z-ai/glm4.7") {
       params.chat_template_kwargs = { "enable_thinking": true, "clear_thinking": false };
       params.max_tokens = 16384;
+    }
+
+    // Specialized Parameters for Nemotron Omni (Audio/Video)
+    if (targetModel === "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning") {
+      // Disable reasoning to make the model respond faster
+      params.reasoning_budget = 0;
+      params.chat_template_kwargs = { "enable_thinking": false, "clear_thinking": true };
+      params.max_tokens = 4096;
     }
 
     // Specialized Parameters for Step-Flash (Aura Coder)

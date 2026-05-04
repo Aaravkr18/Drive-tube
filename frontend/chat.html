@@ -2,7 +2,7 @@
 <html class="dark" lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Synapse AI — Chat with Aura</title>
   <meta name="description" content="Chat with Aura, your personal AI assistant powered by Synapse AI." />
   <meta name="theme-color" content="#111318" />
@@ -87,8 +87,15 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js"></script>
 
+  <!-- Syntax Highlighting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>{if(window.hljs)hljs.configure({ignoreUnescapedHTML:true})});</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css" />
+
   <!-- Styles -->
   <link rel="manifest" href="/manifest.json" />
+  <!-- (#21) Preload critical fonts -->
+  <link rel="preload" href="https://fonts.gstatic.com/s/outfit/v11/QGYyz_MVcBeNP4NjuGObqx1XmO1I4e.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/styles.css" />
   <!-- Inline only the orb animation styles needed by the empty state -->
   <style>
@@ -228,27 +235,11 @@
           <div class="orb-glow"></div>
         </div>
       </div>
-      <p class="text-sm text-on-surface-variant opacity-60 mb-6 text-center px-4" style="max-width: 320px; font-family: 'Inter', sans-serif;">Ask me anything — from science to code to creative writing.</p>
+      <p class="text-sm text-on-surface-variant opacity-60 mb-4 text-center px-4" style="max-width: 320px; font-family: 'Inter', sans-serif;">Ask me anything — from science to code to creative writing.</p>
+      <p id="empty-state-cta" class="empty-state-cta mb-5">↓ Type a message to begin ↓</p>
       <!-- Category Chips -->
       <div class="flex flex-wrap justify-center gap-2 px-4" id="category-chips" style="max-width: 420px;">
-        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#00dbe9]/10 border border-outline-variant/20 hover:border-[#00dbe9]/30 text-on-surface-variant hover:text-[#dbfcff] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Explain quantum physics in simple terms">
-          <span class="material-symbols-outlined" style="font-size:16px;">science</span> Science
-        </button>
-        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#dcb8ff]/10 border border-outline-variant/20 hover:border-[#dcb8ff]/30 text-on-surface-variant hover:text-[#dcb8ff] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Write a modern responsive landing page with HTML, CSS & JS">
-          <span class="material-symbols-outlined" style="font-size:16px;">code</span> Code
-        </button>
-        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#4caf50]/10 border border-outline-variant/20 hover:border-[#4caf50]/30 text-on-surface-variant hover:text-[#4caf50] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Help me study for my math exam — quiz me on calculus">
-          <span class="material-symbols-outlined" style="font-size:16px;">school</span> Study
-        </button>
-        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#ff9800]/10 border border-outline-variant/20 hover:border-[#ff9800]/30 text-on-surface-variant hover:text-[#ff9800] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Write a short creative story about a time traveler">
-          <span class="material-symbols-outlined" style="font-size:16px;">edit_note</span> Writing
-        </button>
-        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#e91e63]/10 border border-outline-variant/20 hover:border-[#e91e63]/30 text-on-surface-variant hover:text-[#e91e63] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Solve this math problem step by step: integrate x^2 * e^x dx">
-          <span class="material-symbols-outlined" style="font-size:16px;">calculate</span> Math
-        </button>
-        <button class="category-chip flex items-center gap-1.5 bg-surface-variant/20 hover:bg-[#00bcd4]/10 border border-outline-variant/20 hover:border-[#00bcd4]/30 text-on-surface-variant hover:text-[#00bcd4] text-xs px-3.5 py-2 rounded-full transition-all whitespace-nowrap active:scale-95" data-prompt="Debate: Is AI a threat to humanity? Take the opposing side">
-          <span class="material-symbols-outlined" style="font-size:16px;">forum</span> Debate
-        </button>
+        <!-- Dynamically populated by chat.js -->
       </div>
     </div>
 
@@ -286,6 +277,7 @@
                 <p class="text-sm font-bold text-on-surface">Aura 1</p>
                 <p class="text-xs text-on-surface-variant">Default, highly intelligent</p>
               </div>
+              <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
             </button>
             <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="openai/gpt-oss-120b" data-name="Aura 2">
               <span class="material-symbols-outlined" style="color:#4caf50;">agriculture</span>
@@ -293,13 +285,23 @@
                 <p class="text-sm font-bold text-on-surface">Aura 2</p>
                 <p class="text-xs text-on-surface-variant">Bilingual Explainer</p>
               </div>
+              <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
             </button>
-            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors" data-model="stepfun-ai/step-3.5-flash" data-name="Aura Coder">
+            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="stepfun-ai/step-3.5-flash" data-name="Aura Coder">
               <span class="material-symbols-outlined text-secondary">code</span>
               <div>
                 <p class="text-sm font-bold text-on-surface">Aura Coder</p>
                 <p class="text-xs text-on-surface-variant">Expert Programming Assistant</p>
               </div>
+              <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
+            </button>
+            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors" data-model="qwen-image" data-name="Aura imagin">
+              <span class="material-symbols-outlined" style="color:#ff9800;">image</span>
+              <div>
+                <p class="text-sm font-bold text-on-surface">Aura imagin</p>
+                <p class="text-xs text-on-surface-variant">AI Image Generator</p>
+              </div>
+              <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
             </button>
           </div>
         </div>
@@ -323,27 +325,27 @@
       </div>
 
       <!-- Normal Text Input -->
-      <div id="text-input-bar" class="glass-card border border-outline-variant/30 rounded-full p-2 flex items-center gap-2 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+      <div id="text-input-bar" class="glass-card border border-outline-variant/30 rounded-[26px] px-2 py-1.5 flex items-center gap-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         <input type="file" id="file-input" class="hidden" multiple accept=".txt,.json,.md,.csv,image/png,image/jpeg,image/webp,image/gif" />
-        <button id="attach-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary transition-colors" aria-label="Attach file">
-          <span class="material-symbols-outlined">attach_file</span>
+        <button id="attach-btn" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors" aria-label="Attach file">
+          <span class="material-symbols-outlined" style="font-size:22px;">attach_file</span>
         </button>
         <textarea
           id="chat-input"
-          class="chat-input-field bg-transparent border-none focus:ring-0 flex-1 text-on-surface placeholder:text-outline/50 font-body py-3 resize-none overflow-hidden"
-          placeholder="Ask Aura anything..."
+          class="chat-input-field bg-transparent border-none focus:ring-0 flex-1 text-on-surface placeholder:text-outline/50 font-body py-2.5 px-1 resize-none overflow-hidden text-[15px] leading-[1.4]"
+          placeholder="Ask Aura"
           rows="1"
           style="max-height: 120px;"
         ></textarea>
         <!-- MIC BUTTON -->
-        <button id="mic-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-secondary transition-colors relative" aria-label="Voice input" title="Voice input">
-          <span class="material-symbols-outlined">mic</span>
+        <button id="mic-btn" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:text-secondary hover:bg-white/5 transition-colors relative" aria-label="Voice input" aria-live="polite" title="Voice input">
+          <span class="material-symbols-outlined" style="font-size:22px;">mic</span>
         </button>
-        <button id="stop-btn" class="hidden w-10 h-10 flex items-center justify-center rounded-xl text-error hover:bg-error/10 transition-all active:scale-90" title="Stop generating" aria-label="Stop generating">
-          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stop_circle</span>
+        <button id="stop-btn" class="hidden w-10 h-10 flex items-center justify-center rounded-full text-error hover:bg-error/10 transition-all active:scale-90" title="Stop generating" aria-label="Stop generating">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size:22px;">stop_circle</span>
         </button>
         <button id="send-btn" class="bg-primary-container text-on-primary-fixed w-10 h-10 flex items-center justify-center rounded-full hover:shadow-[0_0_20px_rgba(0,219,233,0.3)] transition-all active:scale-90" aria-label="Send message">
-          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size:20px;">arrow_upward</span>
         </button>
       </div>
       
@@ -363,6 +365,13 @@
         <button id="close-history-btn" class="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors">
           <span class="material-symbols-outlined">close</span>
         </button>
+      </div>
+      <!-- Search -->
+      <div class="px-3 sm:px-4 pt-3">
+        <div class="history-search-wrap">
+          <span class="material-symbols-outlined history-search-icon">search</span>
+          <input type="text" id="history-search-input" class="history-search-input" placeholder="Search conversations..." autocomplete="off" />
+        </div>
       </div>
       <div class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 chat-history-list" id="history-list-container">
         <!-- History items populated via JS -->
@@ -502,8 +511,20 @@
   </div>
 
   <!-- Image Lightbox Modal -->
-  <div id="image-lightbox-modal" class="fixed inset-0 z-[150] hidden flex-col items-center justify-center backdrop-blur-xl bg-black/80 lightbox-overlay opacity-0 cursor-zoom-out" onclick="closeLightbox()">
-    <img id="lightbox-img" src="" class="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl transition-transform duration-300 scale-95" />
+  <div id="image-lightbox-modal" class="fixed inset-0 z-[150] hidden flex-col items-center justify-center backdrop-blur-xl bg-black/80 lightbox-overlay opacity-0" onclick="closeLightbox(event)">
+    <div class="relative w-full h-full max-w-[95vw] max-h-[90vh] flex flex-col items-center justify-center">
+      <img id="lightbox-img" src="" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-transform duration-300 scale-95 cursor-zoom-out" onclick="event.stopPropagation(); closeLightbox(event)" />
+      
+      <!-- Action buttons -->
+      <div class="absolute top-4 right-4 flex items-center gap-3 z-10" onclick="event.stopPropagation()">
+        <button id="download-lightbox-btn" class="flex items-center gap-2 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white px-4 py-2 rounded-full transition-colors font-bold text-sm border border-white/10 shadow-lg" onclick="downloadLightboxImage()">
+          <span class="material-symbols-outlined" style="font-size:18px;">download</span> Download
+        </button>
+        <button class="w-10 h-10 flex items-center justify-center bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full transition-colors border border-white/10 shadow-lg" onclick="closeLightbox(event)">
+          <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Code Preview Modal -->

@@ -214,35 +214,10 @@ auth.onAuthStateChanged((user) => {
 
     // Only redirect to chat if the user explicitly signed in (not on passive session restore)
     if (explicitLoginAttempt) {
-      const isNewUser = sessionStorage.getItem('synapse_new_user') === 'true';
       sessionStorage.removeItem('synapse_new_user');
 
       if (currentPage === '/' || currentPage === '/index.html' || currentPage === '/login.html') {
-        if (isNewUser) {
-          // It's a new user -> show pricing
-          if (currentPage === '/login.html') {
-            navigateTo('/index.html#pricing');
-          } else {
-            // We are already on index.html
-            // Close the auth modal
-            const authModal = document.getElementById('auth-modal');
-            if (authModal) {
-              authModal.style.opacity = '0';
-              setTimeout(() => {
-                authModal.style.display = 'none';
-              }, 300);
-            }
-            // Navigate to pricing section
-            window.location.hash = 'pricing';
-            const pricingSec = document.getElementById('pricing');
-            if (pricingSec) {
-              pricingSec.scrollIntoView({ behavior: 'smooth' });
-            }
-          }
-        } else {
-          // Existing user -> go to chat
-          navigateTo('/chat.html');
-        }
+        navigateTo('/chat.html');
       }
     }
   } else {
