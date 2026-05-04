@@ -2441,6 +2441,7 @@ html:not(.dark) .history-search-wrap input.history-search-input::placeholder {
   #model-selector-container {
     position: relative;
     z-index: 55;
+    overflow: visible;
   }
 
   /* Model option touch targets */
@@ -2452,18 +2453,11 @@ html:not(.dark) .history-search-wrap input.history-search-input::placeholder {
 
 /* ── Chat Footer Controls: Better Layout on Narrow Screens ── */
 @media (max-width: 420px) {
-  /* Model selector + toggle row */
+  /* Model selector + toggle row — no overflow clipping (dropdown pops upward) */
   .chat-footer-inner .flex.items-center.gap-2.mb-2 {
     gap: 0.35rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    overflow: visible;
     padding-bottom: 2px;
-  }
-
-  .chat-footer-inner .flex.items-center.gap-2.mb-2::-webkit-scrollbar {
-    display: none;
   }
 
   /* Compact model selector button */
@@ -2803,15 +2797,21 @@ html:not(.dark) .history-search-wrap input.history-search-input::placeholder {
     height: 16px !important;
   }
 
-  /* Chat footer: compact spacing */
+  /* Chat footer: compact spacing + prevent dropdown clipping */
   .chat-footer-inner {
     padding-top: 0 !important;
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem)) !important;
+    overflow: visible !important;
+  }
+
+  #chat-footer {
+    overflow: visible !important;
   }
 
   /* Model selector row: tighter */
   .chat-footer-inner .flex.items-center.gap-2.mb-2 {
     margin-bottom: 0.35rem !important;
+    overflow: visible !important;
   }
 
   /* Input bar: slightly smaller radius for more space */
