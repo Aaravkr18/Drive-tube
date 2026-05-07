@@ -111,6 +111,49 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
+// ── IndexedDB Helper (for persistent images & artifacts) ──
+const dbName = "SynapseDB";
+const dbVersion = 1;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, dbVersion);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("attachments")) {
+        db.createObjectStore("attachments", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("artifacts")) {
+        db.createObjectStore("artifacts", { keyPath: "id" });
+      }
+    };
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function saveToDB(storeName, id, data) {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    store.put({ id, data });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getFromDB(storeName, id) {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const request = store.get(id);
+    request.onsuccess = () => resolve(request.result?.data);
+    request.onerror = () => reject(request.error);
+  });
+}
+
 // ── Auth Guard + User Info ──
 auth.onAuthStateChanged((user) => {
   if (!user) {
@@ -543,14 +586,16 @@ function saveSession() {
   if (conversationHistory.length === 0) return;
   
   try {
-    // (#20) Strip base64 image data before persisting to save localStorage space
+    // (#20) Move base64 image data to IndexedDB to save localStorage space & persist
     const stripped = conversationHistory.map(msg => {
       if (Array.isArray(msg.content)) {
         return {
           ...msg,
           content: msg.content.map(block => {
             if (block.type === 'image_url' && block.image_url?.url?.startsWith('data:')) {
-              return { type: 'image_url', image_url: { url: '[image_stripped]' } };
+              const imgId = `img_${currentChatId}_${Math.random().toString(36).substr(2, 9)}`;
+              saveToDB("attachments", imgId, block.image_url.url);
+              return { type: 'image_url', image_url: { url: `db:${imgId}` } };
             }
             return block;
           })
@@ -570,6 +615,9 @@ function saveSession() {
       let firstMsg = conversationHistory.find(m => m.role === "user")?.content || "New Chat";
       if (typeof firstMsg === "string") {
         firstMsg = firstMsg.slice(0, 30) + (firstMsg.length > 30 ? "..." : "");
+      } else if (Array.isArray(firstMsg)) {
+        firstMsg = firstMsg.find(b => b.type === "text")?.text || "Attachment Chat";
+        firstMsg = firstMsg.slice(0, 30) + (firstMsg.length > 30 ? "..." : "");
       } else {
         firstMsg = "Attachment Chat";
       }
@@ -584,7 +632,7 @@ function saveSession() {
     localStorage.removeItem('synapse_draft_input');
     if (chatInput) chatInput.classList.remove('has-draft');
   } catch (e) {
-    console.warn("Could not save session to local storage (likely quota exceeded):", e);
+    console.warn("Could not save session to local storage:", e);
   }
 }
 
@@ -618,7 +666,7 @@ function autoRenameChat(aiResponse) {
   saveHistoryIndex(index);
 }
 
-function loadSession(id) {
+async function loadSession(id) {
   const data = localStorage.getItem(`chat_${id}`);
   if (!data) return;
   
@@ -629,15 +677,26 @@ function loadSession(id) {
   conversationHistory = JSON.parse(data);
   currentChatId = id;
   
+  // Resolve images from IndexedDB
+  for (const msg of conversationHistory) {
+    if (Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (block.type === "image_url" && block.image_url.url.startsWith("db:")) {
+          const imgId = block.image_url.url.split("db:")[1];
+          const realUrl = await getFromDB("attachments", imgId);
+          if (realUrl) block.image_url.url = realUrl;
+        }
+      }
+    }
+  }
+
   chatMessages.innerHTML = "";
   if (heroSection) heroSection.style.display = "none";
   if (emptyState) emptyState.style.display = "none";
   
   conversationHistory.forEach((msg, idx) => {
     // Handling multimodal historical messages
-    // NOTE: history stores AI role as "assistant", not "ai"
     if (msg.role === "assistant") {
-      // AI message — pass raw markdown, appendMessage will call renderMarkdown
       appendMessage("ai", msg.content || "", idx);
     } else {
       // User message
@@ -658,7 +717,9 @@ function loadSession(id) {
         let previews = [];
         for (const block of msg.content) {
           if (block.type === "image_url") {
-            previews.push(`<img src="${block.image_url.url}" style="max-height: 200px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1);"/>`);
+            const src = block.image_url.url.startsWith("db:") ? "#" : block.image_url.url;
+            const dbAttr = block.image_url.url.startsWith("db:") ? `data-db-id="${block.image_url.url.split("db:")[1]}"` : "";
+            previews.push(`<img src="${src}" ${dbAttr} class="lazy-db-img" style="max-height: 200px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1);"/>`);
           }
         }
         if (previews.length > 0) {
@@ -669,6 +730,15 @@ function loadSession(id) {
     }
   });
   
+  // Lazy load images from DB for user bubbles
+  document.querySelectorAll(".lazy-db-img").forEach(async img => {
+    if (img.dataset.dbId) {
+      const data = await getFromDB("attachments", img.dataset.dbId);
+      if (data) img.src = data;
+      img.classList.remove("lazy-db-img");
+    }
+  });
+
   scrollToBottom(true);
   closeHistoryModal();
   if (drawerToggle) drawerToggle.checked = false; // close drawer
@@ -982,6 +1052,9 @@ function sendMessage() {
   // Handle multimodal Payload
   if (attachedFiles.length > 0) {
     const hasImage = attachedFiles.some(f => f.isImage);
+    const hasAudio = attachedFiles.some(f => f.mimeType.startsWith("audio/"));
+    const hasVideo = attachedFiles.some(f => f.mimeType.startsWith("video/"));
+    const isMultimodal = hasImage || hasAudio || hasVideo;
     
     // Block image uploads for Aura 2 specifically as requested
     if (hasImage && currentModelName === "Aura 2") {
@@ -994,13 +1067,17 @@ function sendMessage() {
     for (const file of attachedFiles) {
       if (file.isImage) {
         attachmentPreviews.push(`<img src="${file.data}" alt="${escapeHtml(file.filename)}" style="max-height: 200px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1);"/>`);
+      } else if (file.mimeType.startsWith("audio/")) {
+        attachmentPreviews.push(`<div style="display:flex;align-items:center;gap:8px;background:rgba(0,219,233,0.1);padding:8px;border-radius:8px;margin-top:8px;"><span class="material-symbols-outlined" style="color:#00dbe9;">audiotrack</span><span style="color:#dbfcff;font-size:0.8rem;">${escapeHtml(file.filename)}</span></div>`);
+      } else if (file.mimeType.startsWith("video/")) {
+        attachmentPreviews.push(`<div style="display:flex;align-items:center;gap:8px;background:rgba(220,184,255,0.1);padding:8px;border-radius:8px;margin-top:8px;"><span class="material-symbols-outlined" style="color:#dcb8ff;">movie</span><span style="color:#dbfcff;font-size:0.8rem;">${escapeHtml(file.filename)}</span></div>`);
       } else {
         attachmentPreviews.push(`<span style="color:#00dbe9;font-size:0.8rem; display: block;">📎 Attached: ${escapeHtml(file.filename)}</span>`);
       }
     }
     displayContent += `\n<br><div style="display:flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">${attachmentPreviews.join("")}</div>`;
     
-    if (hasImage) {
+    if (isMultimodal) {
       backendPayload = [
         { type: "text", text: text || "Please analyze the attached files." }
       ];
@@ -1008,6 +1085,10 @@ function sendMessage() {
       for (const file of attachedFiles) {
         if (file.isImage) {
           backendPayload.push({ type: "image_url", image_url: { url: file.data } });
+        } else if (file.mimeType.startsWith("audio/")) {
+          backendPayload.push({ type: "audio_url", audio_url: { url: file.data } });
+        } else if (file.mimeType.startsWith("video/")) {
+          backendPayload.push({ type: "video_url", video_url: { url: file.data } });
         } else {
           backendPayload[0].text += `\n\nAttached file contents (${file.filename}):\n${file.data}`;
         }
@@ -1022,27 +1103,30 @@ function sendMessage() {
     }
   }
 
-  // Display user msg (only the text + clip indicator)
+  // Display user msg
   appendMessage("user", displayContent, -1, true);
   conversationHistory.push({ role: "user", content: backendPayload });
   saveSession();
 
-  // Capture image state BEFORE clearing attachedFiles (used by typing indicator)
-  const hadImageAttachment = attachedFiles.some(f => f.isImage);
+  // Capture multimodal state BEFORE clearing attachedFiles
+  const multimodalState = {
+    hasImage: attachedFiles.some(f => f.isImage),
+    hasAudio: attachedFiles.some(f => f.mimeType.startsWith("audio/")),
+    hasVideo: attachedFiles.some(f => f.mimeType.startsWith("video/"))
+  };
 
   // Reset input and attachments
   chatInput.value = "";
   chatInput.style.height = "auto";
-  chatInput.dispatchEvent(new Event('input')); // reset char counter + clear draft
+  chatInput.dispatchEvent(new Event('input'));
   attachedFiles = [];
   if (fileInput) fileInput.value = "";
   renderAttachments();
   
-  // (#17) Haptic feedback on send
   if (navigator.vibrate) navigator.vibrate(10);
   
   // Start AI response
-  getAuraResponse(hadImageAttachment);
+  getAuraResponse(multimodalState);
 }
 
 // ── Stop Generation ──
@@ -1323,13 +1407,13 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Get AI Response (SSE Stream) ──
-async function getAuraResponse(hadImage = false) {
+async function getAuraResponse(multimodalState = {}) {
   isStreaming = true;
   abortController = new AbortController();
   updateSendButton(true);
   setOrbState('thinking');
 
-  const typingEl = showTypingIndicator(hadImage);
+  const typingEl = showTypingIndicator(multimodalState);
 
   // Hoisted so they're accessible in catch block
   let bubbleEl = null;
@@ -1691,7 +1775,7 @@ function appendMessage(role, content, explicitIndex = -1, isRawHtmlForUser = fal
 }
 
 // ── Typing Indicator (#16 — Skeleton Shimmer) ──
-function showTypingIndicator(hadImage = false) {
+function showTypingIndicator(multimodalState = {}) {
   const row = document.createElement("div");
   row.className = "message-row ai";
   row.id = "typing-row";
@@ -1702,8 +1786,12 @@ function showTypingIndicator(hadImage = false) {
 
   // Smart typing text
   let typingText = "Aura is thinking";
-  if (hadImage) {
+  if (multimodalState.hasImage) {
     typingText = "Analyzing image";
+  } else if (multimodalState.hasAudio) {
+    typingText = "Listening to audio";
+  } else if (multimodalState.hasVideo) {
+    typingText = "Analyzing video";
   } else if (currentModelName === "Aura imagin") {
     typingText = "Generating image";
   } else if (currentModelName === "Aura 1" && aura1Mode === "deep_think") {
@@ -1855,6 +1943,8 @@ function renderMarkdown(text, isStreaming = false) {
       if (!isStreaming) {
         const artifactId = 'artifact_' + (artifactCounter++);
         artifactStore.set(artifactId, block.code);
+        // Also save to IndexedDB for cross-session persistence
+        saveToDB("artifacts", artifactId, block.code);
         return `
           <div class="artifact-card" data-artifact-id="${artifactId}" style="background:rgba(0,219,233,0.05); border:1px solid rgba(0,219,233,0.2); border-radius:12px; padding:16px; margin:12px 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
           <div style="display:flex; align-items:center; gap:12px;">
@@ -2516,7 +2606,7 @@ function updateModelAccentColor() {
 })();
 
 // ── Code Preview (Artifact) Logic ──
-window.previewCode = function(btn) {
+window.previewCode = async function(btn) {
   // Find the artifact card associated with this button
   const wrapper = btn.closest(".artifact-card");
   if (!wrapper) return;
@@ -2524,7 +2614,14 @@ window.previewCode = function(btn) {
   // Get the raw HTML from the in-memory store
   const artifactId = wrapper.getAttribute("data-artifact-id");
   if (!artifactId) return;
-  const rawCode = artifactStore.get(artifactId);
+  
+  let rawCode = artifactStore.get(artifactId);
+  
+  // Fallback to IndexedDB if not in memory (e.g. after page reload)
+  if (!rawCode) {
+    rawCode = await getFromDB("artifacts", artifactId);
+  }
+  
   if (!rawCode) { showToast("Code not available. Please regenerate.", "error"); return; }
 
   // Get modal elements

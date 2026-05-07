@@ -126,13 +126,14 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
   }
 
   // If there's an image, route to the vision model regardless of selected model
+  // (Mistral Large 3 is a great default vision model)
   if (hasImage) {
     targetModel = "mistralai/mistral-large-3-675b-instruct-2512";
-    activeApiKey = process.env.VISION_API_KEY;
-    console.log("[VISION] Image detected — routing to Mistral Large 3 675B");
+    activeApiKey = process.env.VISION_API_KEY || process.env.DEFAULT_API_KEY;
+    console.log(`[VISION] Image detected — routing to ${targetModel}`);
   } else if (hasAudioVideo) {
     targetModel = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
-    activeApiKey = process.env.NVIDIA_API_KEY || process.env.AUDIO_VIDEO_API_KEY || process.env.DEFAULT_API_KEY;
+    activeApiKey = process.env.AUDIO_VIDEO_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
     console.log(`[AUDIO/VIDEO] Audio/Video detected — routing to ${targetModel}`);
   }
 
@@ -203,11 +204,13 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       return;
     }
 
-    const systemPromptText = hasImage 
-      ? "You are Aura, a helpful AI vision assistant by Synapse AI. You MUST look at the image carefully and describe/analyze/solve whatever is shown. If it is a math or science problem, solve it step by step. Always respond as if you can clearly see the image."
-      : (hasAudioVideo 
-          ? "You are Aura, a helpful AI multimodal assistant by Synapse AI. You MUST analyze the provided audio or video carefully and answer questions based on its content. Always respond as if you can clearly hear/see the media."
-          : (persona || AURA_SYSTEM_PROMPT));
+    let systemPromptText = persona || AURA_SYSTEM_PROMPT;
+    
+    if (hasImage) {
+      systemPromptText += "\n\n[VISION MODE ACTIVE] You can see images. Analyze them carefully. If you see math or code, explain/solve it. Always maintain your persona while describing what you see.";
+    } else if (hasAudioVideo) {
+      systemPromptText += "\n\n[MULTIMODAL MODE ACTIVE] You can hear audio and see video. Analyze the media carefully and answer based on its content while maintaining your persona.";
+    }
 
     let apiMessages = messages;
     
