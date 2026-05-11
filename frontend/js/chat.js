@@ -503,7 +503,6 @@ if (modelOptions) {
       if (currentModelName === 'Aura 1') currentModelNameEl.style.color = '#00dbe9';
       else if (currentModelName === 'Aura 2') currentModelNameEl.style.color = '#4caf50';
       else if (currentModelName === 'Aura Coder') currentModelNameEl.style.color = '#dcb8ff';
-      else if (currentModelName === 'Aura imagin') currentModelNameEl.style.color = '#ff9800';
       
       // Update active indicator in dropdown
       updateActiveModelIndicator(currentModelName);
@@ -535,11 +534,6 @@ function updateDynamicTheme(modelName) {
       blob1: "#7701d0", // Deep Purple
       blob2: "#dcb8ff", // Lavender
       blob3: "#6366f1"  // Indigo
-    },
-    "Aura imagin": {
-      blob1: "#ff9800", // Orange
-      blob2: "#ff5722", // Deep Orange
-      blob3: "#ffc107"  // Amber
     }
   };
 
@@ -837,6 +831,11 @@ function createNewChat(skipUndo = false) {
   // Clear artifact store to free memory from previous chat
   artifactStore.clear();
   artifactCounter = 0;
+  
+  // Close Canvas if open
+  if (document.body.classList.contains("canvas-open")) {
+    window.closeCodePreview();
+  }
   
   if (heroSection) heroSection.style.display = "";
   if (emptyState) emptyState.style.display = "flex";
@@ -1209,15 +1208,6 @@ function renderSuggestionChips() {
       { icon: 'speed', text: 'Optimize', prompt: 'How can I optimize the performance of my JavaScript loops?', color: '#ff9800' },
       { icon: 'data_object', text: 'Algorithms', prompt: 'Explain how the QuickSort algorithm works with an example in Python', color: '#00bcd4' }
     ];
-  } else if (currentModelName === 'Aura imagin') {
-    chips = [
-      { icon: 'lightbulb', text: 'Cyberpunk', prompt: 'A neon-lit cyberpunk city skyline at night in the rain, highly detailed', color: '#00dbe9' },
-      { icon: 'brush', text: 'Abstract', prompt: 'An abstract painting with flowing vibrant colors and deep contrasts', color: '#e91e63' },
-      { icon: 'nature', text: 'Fantasy', prompt: 'A mystical forest with glowing mushrooms and ancient ruins', color: '#4caf50' },
-      { icon: 'person', text: 'Portrait', prompt: 'A hyper-realistic portrait of an astronaut looking at the stars', color: '#dcb8ff' },
-      { icon: '3d_rotation', text: 'Isometric', prompt: 'A cute 3D isometric illustration of a cozy developer workspace', color: '#ff9800' },
-      { icon: 'star', text: 'Logo', prompt: 'A minimalist vector logo of a futuristic AI company called Synapse', color: '#00bcd4' }
-    ];
   } else {
     // Default / Aura 1 / Aura 2
     chips = [
@@ -1373,9 +1363,9 @@ window.downloadLightboxImage = function() {
 // Close lightbox on Escape key — only if no higher z-index modal is open
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    // Priority: code preview (z:200) > lightbox (z:150) > history/settings (z:100)
-    const codePreview = document.getElementById("code-preview-modal");
-    if (codePreview && !codePreview.classList.contains("hidden")) {
+    // Priority: canvas panel (z:80) > lightbox (z:150) > history/settings (z:100)
+    const canvasPanel = document.getElementById("canvas-panel");
+    if (canvasPanel && !canvasPanel.classList.contains("hidden")) {
       window.closeCodePreview();
       return;
     }
@@ -1506,6 +1496,28 @@ async function getAuraResponse(multimodalState = {}) {
 
           if (data.content) {
             fullContent += data.content;
+
+            // ── Canvas Live Streaming ──
+            // Detect HTML block start and auto-open Canvas for Aura Coder
+            if (currentModelName === "Aura Coder" || currentModelName === "Aura 1") {
+              const htmlBlockMatch = fullContent.match(/```html\n?([\s\S]*)/);
+              if (htmlBlockMatch) {
+                // Extract code captured so far (before closing ```)
+                const codeMatch = fullContent.match(/```html\n?([\s\S]*?)(?:```|$)/);
+                const liveCode = codeMatch ? codeMatch[1] : htmlBlockMatch[1];
+
+                if (!canvasIsStreaming) {
+                  // First detection — open the Canvas
+                  canvasIsStreaming = true;
+                  openCanvasPanel("Web App", "Writing code...");
+                }
+                // Push live update (debounced inside updateCanvasLive)
+                if (liveCode.length > 80) {
+                  updateCanvasLive(liveCode);
+                }
+              }
+            }
+
             // When content starts, stop the reasoning progress bar but keep block OPEN
             if (reasoningEl) {
               const progressBar = reasoningEl.querySelector(".deep-think-progress");
@@ -1558,6 +1570,16 @@ async function getAuraResponse(multimodalState = {}) {
     }
     if (bubbleEl) appendActionBar(bubbleEl, fullContent);
 
+    // ── Finalize Canvas if we were streaming code ──
+    if (canvasIsStreaming) {
+      const finalHtmlMatch = fullContent.match(/```html\n?([\s\S]*?)(?:```|$)/);
+      if (finalHtmlMatch && finalHtmlMatch[1].trim()) {
+        finalizeCanvas(finalHtmlMatch[1].trim());
+      } else {
+        finalizeCanvas(canvasLiveCode);
+      }
+    }
+
     conversationHistory.push({ role: "assistant", content: fullContent });
     saveSession();
     
@@ -1584,6 +1606,10 @@ async function getAuraResponse(multimodalState = {}) {
         conversationHistory.push({ role: "assistant", content: fullContent });
         saveSession();
       }
+      // Finalize canvas if we were streaming code when stopped
+      if (canvasIsStreaming && canvasLiveCode.trim()) {
+        finalizeCanvas(canvasLiveCode);
+      }
     } else {
       // Check if error was already partially handled in stream
       const lastAiBubble = chatMessages.querySelector(".message-row.ai:last-child .ai-bubble");
@@ -1598,6 +1624,7 @@ async function getAuraResponse(multimodalState = {}) {
   } finally {
     isStreaming = false;
     abortController = null;
+    canvasIsStreaming = false;
     updateSendButton(false);
     animateSendButton();
     scrollToBottom();
@@ -1676,8 +1703,8 @@ function appendActionBar(bubbleEl, content) {
   // (#8) Export button
   const exportBtn = document.createElement("button");
   exportBtn.className = "action-btn";
-  exportBtn.title = "Export chat";
-  exportBtn.innerHTML = '<span class="material-symbols-outlined">download</span>';
+  exportBtn.title = "Export as PDF";
+  exportBtn.innerHTML = '<span class="material-symbols-outlined">picture_as_pdf</span>';
   exportBtn.onclick = () => exportCurrentChat();
 
   bar.appendChild(copyBtn);
@@ -1792,8 +1819,8 @@ function showTypingIndicator(multimodalState = {}) {
     typingText = "Listening to audio";
   } else if (multimodalState.hasVideo) {
     typingText = "Analyzing video";
-  } else if (currentModelName === "Aura imagin") {
-    typingText = "Generating image";
+  } else if (currentModelName === "Aura Coder") {
+    typingText = "Writing code";
   } else if (currentModelName === "Aura 1" && aura1Mode === "deep_think") {
     typingText = "Reasoning deeply";
   }
@@ -2350,19 +2377,26 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// (#8) Export Chat as Markdown
+// ── Export Chat as PDF ──
 function exportCurrentChat() {
   if (conversationHistory.length === 0) {
     showToast('No conversation to export', 'error');
     return;
   }
-  
-  let md = `# Synapse AI — Chat Export\n`;
-  md += `**Model:** ${currentModelName}\n`;
-  md += `**Date:** ${new Date().toLocaleDateString()}\n\n---\n\n`;
-  
+
+  const user = auth.currentUser;
+  const userName = user?.displayName || user?.email || 'You';
+  const index = getHistoryIndex();
+  const entry = index.find(c => c.id === currentChatId);
+  const chatTitle = entry?.title || 'Chat Export';
+  const exportDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+
+  // Build message HTML
+  let messagesHtml = '';
   conversationHistory.forEach(msg => {
-    const role = msg.role === 'assistant' ? '🤖 **Aura**' : '👤 **You**';
     let content = '';
     if (typeof msg.content === 'string') {
       content = msg.content;
@@ -2370,27 +2404,141 @@ function exportCurrentChat() {
       const textItem = msg.content.find(c => c.type === 'text');
       content = textItem ? textItem.text : '[Attachment]';
     }
-    md += `${role}\n\n${content}\n\n---\n\n`;
+
+    const isAI = msg.role === 'assistant';
+    const roleLabel = isAI ? `✦ Aura <span class="model-badge">${currentModelName}</span>` : `👤 ${escapeHtml(userName)}`;
+    const bubbleClass = isAI ? 'ai-msg' : 'user-msg';
+
+    // Convert markdown to simple HTML for PDF
+    let htmlContent = escapeHtml(content)
+      // Code blocks
+      .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+        `<pre class="code-block"><code>${code.trimEnd()}</code></pre>`)
+      // Inline code
+      .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+      // Bold
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      // Headers
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      // Bullet lists
+      .replace(/^[•\-\*] (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+      // Numbered lists
+      .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+      // Line breaks
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+
+    messagesHtml += `
+      <div class="message ${bubbleClass}">
+        <div class="message-role">${roleLabel}</div>
+        <div class="message-content"><p>${htmlContent}</p></div>
+      </div>`;
   });
-  
-  const blob = new Blob([md], { type: 'text/markdown' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  
-  // Use chat title for filename
-  const index = getHistoryIndex();
-  const entry = index.find(c => c.id === currentChatId);
-  const title = (entry?.title || 'chat').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
-  a.download = `synapse_${title}_${Date.now()}.md`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  
-  showToast('Chat exported as Markdown', 'success');
+
+  // ── 1-Click Direct PDF Export using html2pdf.js ──
+  const element = document.createElement('div');
+  element.innerHTML = `
+    <div class="pdf-export-container" style="padding: 20px; font-family: 'Inter', sans-serif; color: #1a1b21;">
+      <div style="border-bottom: 3px solid #00dbe9; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+          <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">SYNAPSE<span style="color: #00dbe9;">AI</span></h1>
+          <h2 style="margin: 5px 0 0 0; font-size: 16px; font-weight: 600; color: #333;">${escapeHtml(chatTitle)}</h2>
+        </div>
+        <div style="text-align: right; font-size: 10px; color: #666; line-height: 1.5;">
+          <div>Model: ${escapeHtml(currentModelName)}</div>
+          <div>Exported: ${exportDate}</div>
+          <div>${conversationHistory.length} messages</div>
+        </div>
+      </div>
+      <div class="pdf-body">
+        ${messagesHtml}
+      </div>
+      <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 15px; font-size: 9px; color: #999; display: flex; justify-content: space-between;">
+        <span>Synapse AI — Confidential</span>
+        <span>${escapeHtml(chatTitle)}</span>
+      </div>
+    </div>
+  `;
+
+  // Inject styles for the PDF elements
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .pdf-export-container .message { margin-bottom: 20px; page-break-inside: avoid; }
+    .pdf-export-container .message-role { font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
+    .pdf-export-container .model-badge { background: #e0f7fa; color: #006970; border-radius: 3px; padding: 1px 4px; font-size: 8px; font-weight: 600; text-transform: none; }
+    .pdf-export-container .message-content { background: #f9f9fa; border-radius: 8px; padding: 12px 16px; font-size: 11px; line-height: 1.6; border: 1px solid #eee; }
+    .pdf-export-container .ai-msg .message-content { border-left: 3px solid #00dbe9; }
+    .pdf-export-container .user-msg .message-content { border-left: 3px solid #7701d0; background: #faf5ff; border-color: #e4d4ff; }
+    .pdf-export-container .ai-msg .message-role { color: #006970; }
+    .pdf-export-container .user-msg .message-role { color: #5b21b6; }
+    .pdf-export-container p { margin: 4px 0; }
+    .pdf-export-container h1 { font-size: 14px; margin: 10px 0 5px; }
+    .pdf-export-container h2 { font-size: 13px; margin: 10px 0 5px; }
+    .pdf-export-container h3 { font-size: 12px; margin: 10px 0 5px; }
+    .pdf-export-container strong { color: #000; }
+    .pdf-export-container ul, .pdf-export-container ol { padding-left: 20px; margin: 5px 0; }
+    .pdf-export-container .code-block { background: #f1f3f7; border-radius: 6px; padding: 10px; margin: 8px 0; font-family: monospace; font-size: 9px; white-space: pre-wrap; word-wrap: break-word; page-break-inside: avoid; }
+    .pdf-export-container .inline-code { background: #e0f7fa; color: #006970; padding: 1px 4px; border-radius: 3px; font-family: monospace; font-size: 10px; }
+  `;
+  element.appendChild(style);
+
+  // Configure html2pdf
+  const safeFilename = chatTitle.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+  const opt = {
+    margin:       [10, 10, 10, 10],
+    filename:     `SynapseAI_${safeFilename}.pdf`,
+    image:        { type: 'jpeg', quality: 0.95 },
+    html2canvas:  { 
+      scale: 1.5,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: 900
+    },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  // Loading overlay so user knows PDF is generating
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff;font-family:Inter,sans-serif;';
+  overlay.innerHTML = '<div style="width:40px;height:40px;border:3px solid rgba(255,255,255,0.2);border-top-color:#00dbe9;border-radius:50%;animation:spin 0.8s linear infinite;"></div><div style="font-size:14px;font-weight:500;">Generating PDF...</div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+  document.body.appendChild(overlay);
+
+  // IMPORTANT: element must be in DOM and on-screen for html2canvas to render it.
+  // We place it below the visible area but within the document flow.
+  element.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 900px;
+    z-index: -1;
+    opacity: 1;
+    background: #fff;
+    pointer-events: none;
+  `;
+  document.body.appendChild(element);
+
+  // Small delay so the overlay renders first, then we capture
+  setTimeout(() => {
+    html2pdf().set(opt).from(element).save().then(() => {
+      document.body.removeChild(element);
+      document.body.removeChild(overlay);
+      showToast('PDF downloaded!', 'success');
+    }).catch(err => {
+      console.error('PDF Export Error:', err);
+      document.body.removeChild(element);
+      document.body.removeChild(overlay);
+      showToast('PDF failed — try again', 'error');
+    });
+  }, 100);
 }
 window.exportCurrentChat = exportCurrentChat;
+
 
 // (#10) Model Warning when loading old chat with different model
 function showModelWarning(originalModel) {
@@ -2579,7 +2727,7 @@ function updateModelAccentColor() {
   if (name === 'Aura 1') { el.style.color = '#00dbe9'; }
   else if (name === 'Aura 2') { el.style.color = '#4caf50'; }
   else if (name === 'Aura Coder') { el.style.color = '#dcb8ff'; }
-  else if (name === 'Aura imagin') { el.style.color = '#ff9800'; }
+
   else { el.style.color = ''; }
 }
 
@@ -2605,80 +2753,178 @@ function updateModelAccentColor() {
   });
 })();
 
-// ── Code Preview (Artifact) Logic ──
+// ══════════════════════════════════════════
+// CANVAS PANEL — Gemini-style side Canvas
+// ══════════════════════════════════════════
+
+// ── Canvas State ──
+let canvasLiveCode = "";       // currently-streaming HTML
+let canvasLiveTimer = null;    // debounce timer for live preview updates
+let canvasIsStreaming = false; // true while Aura Coder is writing code
+
+// ── Open Canvas Panel ──
+function openCanvasPanel(title = "Web App", subtitle = "Writing code...") {
+  const panel = document.getElementById("canvas-panel");
+  const backdrop = document.getElementById("canvas-backdrop");
+  if (!panel) return;
+
+  // Set title / subtitle
+  const titleEl = document.getElementById("canvas-title");
+  const subtitleEl = document.getElementById("canvas-subtitle");
+  if (titleEl) titleEl.textContent = title;
+  if (subtitleEl) subtitleEl.textContent = subtitle;
+
+  // Add writing animation
+  panel.classList.add("canvas-writing");
+
+  // Show panel + backdrop
+  panel.classList.remove("hidden");
+  if (window.innerWidth < 768 && backdrop) backdrop.classList.remove("hidden");
+
+  // Enable split view
+  document.body.classList.add("canvas-open");
+
+  // Show Live badge
+  const liveBadge = document.getElementById("canvas-live-indicator");
+  if (liveBadge) liveBadge.classList.remove("hidden");
+
+  // Auto-switch to Code tab while streaming — preview is blank with partial HTML
+  switchCanvasTab('code');
+}
+
+// ── Update Canvas with Live Code (called while streaming) ──
+function updateCanvasLive(htmlCode) {
+  canvasLiveCode = htmlCode;
+  const codeEl = document.getElementById("canvas-code-content");
+
+  // Only update the CODE tab during streaming — iframe gets full HTML only at the end
+  if (codeEl) {
+    codeEl.textContent = htmlCode;
+    // Scroll the code view to bottom so user sees the latest line being written
+    const codeView = document.getElementById("canvas-code-view");
+    if (codeView) codeView.scrollTop = codeView.scrollHeight;
+  }
+
+  // Clear any pending iframe timer (we don't update iframe during streaming)
+  if (canvasLiveTimer) { clearTimeout(canvasLiveTimer); canvasLiveTimer = null; }
+}
+
+// ── Finalize Canvas after streaming is done ──
+function finalizeCanvas(htmlCode) {
+  canvasLiveCode = htmlCode;
+  canvasIsStreaming = false;
+
+  const panel = document.getElementById("canvas-panel");
+  const liveBadge = document.getElementById("canvas-live-indicator");
+  const subtitleEl = document.getElementById("canvas-subtitle");
+  const iframe = document.getElementById("code-preview-iframe");
+  const codeEl = document.getElementById("canvas-code-content");
+
+  // Stop writing animation
+  if (panel) panel.classList.remove("canvas-writing");
+
+  // Hide live badge
+  if (liveBadge) liveBadge.classList.add("hidden");
+
+  // Update subtitle
+  if (subtitleEl) subtitleEl.textContent = "Ready · HTML / CSS / JS";
+
+  // Final code render + syntax highlighting
+  if (codeEl) {
+    codeEl.textContent = htmlCode;
+    if (window.hljs) hljs.highlightElement(codeEl);
+  }
+
+  // Store globally for download
+  window.currentPreviewCode = htmlCode;
+
+  // Render the complete HTML into iframe via blob URL (most reliable method)
+  if (iframe) {
+    if (canvasLiveTimer) { clearTimeout(canvasLiveTimer); canvasLiveTimer = null; }
+    if (iframe._blobUrl) URL.revokeObjectURL(iframe._blobUrl);
+    const blob = new Blob([htmlCode], { type: "text/html" });
+    const blobUrl = URL.createObjectURL(blob);
+    iframe._blobUrl = blobUrl;
+    iframe.removeAttribute("srcdoc");
+    iframe.src = blobUrl;
+
+    // Auto-switch to Preview tab once iframe is loaded
+    iframe.onload = () => {
+      switchCanvasTab('preview');
+      iframe.onload = null; // clear handler
+    };
+  } else {
+    // No iframe — just switch to preview tab anyway
+    switchCanvasTab('preview');
+  }
+}
+
+// ── Open Canvas for a completed artifact (clicking "Open Preview" button) ──
 window.previewCode = async function(btn) {
-  // Find the artifact card associated with this button
   const wrapper = btn.closest(".artifact-card");
   if (!wrapper) return;
-  
-  // Get the raw HTML from the in-memory store
+
   const artifactId = wrapper.getAttribute("data-artifact-id");
   if (!artifactId) return;
-  
+
   let rawCode = artifactStore.get(artifactId);
-  
-  // Fallback to IndexedDB if not in memory (e.g. after page reload)
-  if (!rawCode) {
-    rawCode = await getFromDB("artifacts", artifactId);
-  }
-  
+  if (!rawCode) rawCode = await getFromDB("artifacts", artifactId);
   if (!rawCode) { showToast("Code not available. Please regenerate.", "error"); return; }
 
-  // Get modal elements
-  const modal = document.getElementById("code-preview-modal");
-  const modalContent = document.getElementById("code-preview-content");
-  const iframe = document.getElementById("code-preview-iframe");
-  
-  // Store raw code globally so the download button can access it
-  window.currentPreviewCode = rawCode;
-
-  if (!modal || !iframe) return;
-
-  // Inject code via Blob URL (more reliable than srcdoc on mobile)
-  const blob = new Blob([rawCode], { type: "text/html" });
-  const blobUrl = URL.createObjectURL(blob);
-  iframe.removeAttribute("srcdoc");
-  iframe.src = blobUrl;
-  // Store for cleanup
-  iframe._blobUrl = blobUrl;
-
-  // Show modal
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
-  
-  // Trigger animation
-  requestAnimationFrame(() => {
-    modal.classList.remove("opacity-0");
-    if (modalContent) modalContent.classList.remove("scale-95");
-  });
+  openCanvasPanel("Web App", "Ready · HTML / CSS / JS");
+  finalizeCanvas(rawCode);
 };
 
+// ── Close Canvas ──
 window.closeCodePreview = function() {
-  const modal = document.getElementById("code-preview-modal");
-  const modalContent = document.getElementById("code-preview-content");
+  const panel = document.getElementById("canvas-panel");
+  const backdrop = document.getElementById("canvas-backdrop");
   const iframe = document.getElementById("code-preview-iframe");
-  
-  if (!modal) return;
 
-  // Animate out
-  modal.classList.add("opacity-0");
-  if (modalContent) modalContent.classList.add("scale-95");
+  if (!panel) return;
 
-  setTimeout(() => {
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-    if (iframe) {
-      // Revoke old blob URL to free memory
-      if (iframe._blobUrl) {
-        URL.revokeObjectURL(iframe._blobUrl);
-        iframe._blobUrl = null;
-      }
-      iframe.src = "about:blank";
+  panel.classList.add("hidden");
+  if (backdrop) backdrop.classList.add("hidden");
+  document.body.classList.remove("canvas-open");
+
+  // Cleanup iframe
+  if (iframe) {
+    if (canvasLiveTimer) clearTimeout(canvasLiveTimer);
+    if (iframe._blobUrl) {
+      URL.revokeObjectURL(iframe._blobUrl);
+      iframe._blobUrl = null;
     }
-  }, 300);
+    iframe.removeAttribute("srcdoc");
+    iframe.src = "about:blank";
+  }
+
+  canvasLiveCode = "";
+  canvasIsStreaming = false;
 };
 
-// Close preview modal on escape key is now handled by the unified Escape handler above
+// ── Switch Canvas Tab (Preview / Code) ──
+window.switchCanvasTab = function(tab) {
+  const previewTab = document.getElementById("canvas-preview-tab");
+  const codeTab = document.getElementById("canvas-code-tab");
+  const previewBtn = document.getElementById("canvas-tab-preview");
+  const codeBtn = document.getElementById("canvas-tab-code");
+
+  if (tab === "preview") {
+    previewTab?.classList.remove("hidden");
+    previewTab?.classList.add("active");
+    codeTab?.classList.add("hidden");
+    codeTab?.classList.remove("active");
+    previewBtn?.classList.add("active");
+    codeBtn?.classList.remove("active");
+  } else {
+    codeTab?.classList.remove("hidden");
+    codeTab?.classList.add("active");
+    previewTab?.classList.add("hidden");
+    previewTab?.classList.remove("active");
+    codeBtn?.classList.add("active");
+    previewBtn?.classList.remove("active");
+  }
+};
 
 // ── Download Artifact ──
 window.downloadCodePreview = function() {
@@ -2699,6 +2945,7 @@ window.downloadCodePreview = function() {
   
   showToast("Code downloaded successfully!", "success");
 };
+
 
 // ── Web Speech API (Voice Input) ──
 const micBtn = document.getElementById("mic-btn");

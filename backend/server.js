@@ -109,6 +109,22 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
   }
 
   let targetModel = model || "z-ai/glm4.7";
+
+  // Check if user is requesting to generate an image
+  const lastMsg = messages.slice().reverse().find(m => m.role === "user");
+  let lastUserText = "";
+  if (lastMsg) {
+    if (typeof lastMsg.content === "string") lastUserText = lastMsg.content;
+    else if (Array.isArray(lastMsg.content)) lastUserText = lastMsg.content.find(c => c.type === "text")?.text || "";
+  }
+
+  const isImageRequest = targetModel === "qwen-image" ||
+    /^(generate image|generate an image|create image|create an image|make an image|make a picture|generate a picture|draw (?:a |an |me a |me an )?(?:picture|image|photo|illustration|art|painting|portrait|logo|icon|wallpaper))/i.test(lastUserText.trim());
+
+  if (isImageRequest) {
+    targetModel = "qwen-image";
+  }
+
   let baseURL = process.env.AI_BASE_URL || "https://integrate.api.nvidia.com/v1";
   let activeApiKey = null;
   

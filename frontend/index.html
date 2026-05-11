@@ -35,6 +35,19 @@
       <div class="mesh-overlay"></div>
     </div>
 
+    <!-- Particle Background -->
+    <canvas id="particle-canvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; opacity: 0.8;"></canvas>
+
+    <!-- Floating Glass Blobs -->
+    <div class="floating-blobs-container">
+      <div class="floating-blob glass-strong" style="left: 10%; top: 20%; animation-duration: 22s; animation-delay: 1s;"></div>
+      <div class="floating-blob glass-strong" style="left: 80%; top: 15%; animation-duration: 18s; animation-delay: 3s;"></div>
+      <div class="floating-blob glass-strong" style="left: 60%; top: 70%; animation-duration: 25s; animation-delay: 0s;"></div>
+      <div class="floating-blob glass-strong" style="left: 15%; top: 80%; animation-duration: 20s; animation-delay: 2s;"></div>
+      <div class="floating-blob glass-strong" style="left: 40%; top: 40%; animation-duration: 15s; animation-delay: 4s;"></div>
+      <div class="floating-blob glass-strong" style="left: 85%; top: 60%; animation-duration: 23s; animation-delay: 1.5s;"></div>
+    </div>
+
     <div id="app">
       <!-- Navigation -->
       <nav class="navbar glass reveal">
@@ -55,20 +68,13 @@
       <!-- Hero Section -->
       <main class="hero">
         <section class="hero-content">
-          <h1 class="hero-title reveal">Intelligent <span class="text-glow" id="typewriter-target">Synapse</span></h1>
-          <p class="hero-subtitle reveal">Unified intelligence through Aura. Toggle between the world's most powerful LLMs in a single, fluid interface.</p>
+          <h1 class="hero-title reveal">Meet <span class="text-glow">Aura</span><br><span style="color: white; font-size: 0.65em;">Your Adaptive AI Intelligence</span></h1>
+          <p class="hero-subtitle reveal">Multi-model orchestration that dynamically switches between LLM providers based on your needs, delivering the perfect balance of speed and intelligence.</p>
           <div class="hero-actions reveal">
-            <a href="/login.html" class="btn btn-large btn-primary glass-btn-heavy" id="hero-start-btn">Start Conversing</a>
+            <a href="#" class="btn btn-large btn-primary glass-btn-heavy" id="hero-start-btn">Join Waitlist</a>
             <a href="#models" class="btn btn-large btn-secondary glass-btn" id="hero-explore-btn">Explore Models</a>
           </div>
         </section>
-
-        <div class="aura-orb-container reveal">
-          <div class="aura-orb">
-            <div class="orb-inner"></div>
-            <div class="orb-glow"></div>
-          </div>
-        </div>
       </main>
 
       <!-- Scroll Indicator -->
@@ -77,58 +83,65 @@
       </div>
 
       <!-- Features Section -->
-      <section id="features" class="features-grid">
-        <div class="feature-card glass reveal">
-          <div style="font-size: 2rem; color: #00dbe9; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">hub</span></div>
-          <h3>Multi-LLM Engine</h3>
-          <p>Switch between Aura 1, 2, Coder, and imagin models instantly.</p>
+      <section id="features">
+        <div class="section-header reveal">
+          <h2 class="section-title"><span class="text-glow">Powerful Features</span></h2>
+          <p class="section-subtitle">Experience the next generation of AI interaction with our cutting-edge capabilities</p>
         </div>
-        <div class="feature-card glass reveal">
-          <div style="font-size: 2rem; color: #4caf50; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">psychology</span></div>
-          <h3>Aura Intelligence</h3>
-          <p>A personal assistant that adapts to your workflow.</p>
-        </div>
-        <div class="feature-card glass reveal">
-          <div style="font-size: 2rem; color: #ff9800; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">auto_awesome</span></div>
-          <h3>Multimodal AI</h3>
-          <p>Analyze images, audio, and video effortlessly, or generate stunning visual art with Aura imagin.</p>
+        <div class="features-grid">
+          <div class="feature-card glass reveal">
+            <div style="font-size: 2rem; color: #00dbe9; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">hub</span></div>
+            <h3>Multi-LLM Engine</h3>
+            <p>Switch between Aura 1, 2, and Coder models instantly.</p>
+          </div>
+          <div class="feature-card glass reveal">
+            <div style="font-size: 2rem; color: #4caf50; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">psychology</span></div>
+            <h3>Aura Intelligence</h3>
+            <p>A personal assistant that adapts to your workflow.</p>
+          </div>
+          <div class="feature-card glass reveal">
+            <div style="font-size: 2rem; color: #ff9800; margin-bottom: 0.5rem;"><span class="material-symbols-outlined hover-icon-spin" style="font-size: 32px; font-variation-settings: 'FILL' 1;">auto_awesome</span></div>
+            <h3>Multimodal AI</h3>
+            <p>Analyze images, audio, and video effortlessly, or generate stunning visual art with Aura 1.</p>
+          </div>
         </div>
       </section>
 
       <!-- Models Section -->
-      <section id="models" class="features-grid">
-        <h2 class="section-title reveal" style="grid-column: 1/-1;">Choose Your Intelligence</h2>
-        <div class="feature-card model-card glass reveal">
-          <div class="model-card-header">
-            <span class="model-icon" style="color:#00dbe9;">✦</span>
-            <span class="model-tag">Default</span>
-          </div>
-          <h3>Aura 1</h3>
-          <p>Highly intelligent with Deep Think reasoning. Tackles complex problems, science, and analysis with unmatched depth.</p>
+      <section id="models">
+        <div class="section-header reveal">
+          <h2 class="section-title"><span class="text-glow">Model Ecosystem</span></h2>
+          <p class="section-subtitle">Choose from the world's leading AI models, all seamlessly integrated</p>
         </div>
-        <div class="feature-card model-card glass reveal">
-          <div class="model-card-header">
-            <span class="model-icon" style="color:#4caf50;">✦</span>
-            <span class="model-tag">Bilingual</span>
+        <div class="features-grid">
+          <div class="feature-card model-card glass reveal">
+            <div class="model-card-header">
+              <span class="model-icon" style="color:#00dbe9;">✦</span>
+              <span class="model-tag">Default</span>
+            </div>
+            <h3>Aura 1</h3>
+            <p>Highly intelligent with Deep Think reasoning. Tackles complex problems, science, and analysis with unmatched depth.</p>
+            <div class="model-available"><div class="pulse-dot" style="background:#00dbe9;"></div>Available Now</div>
           </div>
-          <h3>Aura 2</h3>
-          <p>Explains any concept in both English and Hinglish — making knowledge accessible and easy to understand for everyone.</p>
-        </div>
-        <div class="feature-card model-card glass reveal">
-          <div class="model-card-header">
-            <span class="model-icon" style="color:#dcb8ff;">✦</span>
-            <span class="model-tag">Coding</span>
+          <div class="feature-card model-card glass reveal">
+            <div class="model-card-header">
+              <span class="model-icon" style="color:#4caf50;">✦</span>
+              <span class="model-tag">Bilingual</span>
+            </div>
+            <h3>Aura 2</h3>
+            <p>Explains any concept in both English and Hinglish — making knowledge accessible and easy to understand for everyone.</p>
+            <div class="model-available"><div class="pulse-dot" style="background:#4caf50;"></div>Available Now</div>
           </div>
-          <h3>Aura Coder</h3>
-          <p>A world-class programming expert. Gets full, production-ready code with modern UI in any language or framework.</p>
-        </div>
-        <div class="feature-card model-card glass reveal">
-          <div class="model-card-header">
-            <span class="model-icon" style="color:#ff9800;">✦</span>
-            <span class="model-tag">Creative</span>
+          <div class="feature-card model-card glass reveal">
+            <div class="model-card-header">
+              <span class="model-icon" style="color:#dcb8ff;">✦</span>
+              <span class="model-tag">Coding</span>
+            </div>
+            <h3>Aura Coder</h3>
+            <p>A world-class programming expert with a built-in Canvas feature. Generates full, production-ready code and renders modern UIs instantly.</p>
+            <div class="model-available"><div class="pulse-dot" style="background:#dcb8ff;"></div>Available Now</div>
           </div>
-          <h3>Aura imagin</h3>
-          <p>An AI image generator that turns your text prompts into stunning visuals — from concept art to photorealistic scenes.</p>
+
         </div>
       </section>
 
@@ -137,7 +150,7 @@
       <!-- Stats Ribbon -->
       <section class="stats-ribbon reveal">
         <div class="stat-item">
-          <span class="stat-number">6</span>
+          <span class="stat-number">3</span>
           <span class="stat-label">AI Models</span>
         </div>
         <div class="stat-divider"></div>
@@ -305,5 +318,6 @@
     <script src="/js/firebase-config.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/landing.js"></script>
+    <script src="/js/particles.js"></script>
   </body>
 </html>

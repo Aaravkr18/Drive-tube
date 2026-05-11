@@ -96,7 +96,7 @@
   <link rel="manifest" href="/manifest.json" />
   <!-- (#21) Preload critical fonts -->
   <link rel="preload" href="https://fonts.gstatic.com/s/outfit/v11/QGYyz_MVcBeNP4NjuGObqx1XmO1I4e.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/styles.css?v=5" />
   <!-- Inline only the orb animation styles needed by the empty state -->
   <style>
     .aura-orb-container { position: relative; }
@@ -287,22 +287,15 @@
               </div>
               <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
             </button>
-            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="stepfun-ai/step-3.5-flash" data-name="Aura Coder">
+            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors" data-model="stepfun-ai/step-3.5-flash" data-name="Aura Coder">
               <span class="material-symbols-outlined text-secondary">code</span>
               <div>
                 <p class="text-sm font-bold text-on-surface">Aura Coder</p>
-                <p class="text-xs text-on-surface-variant">Expert Programming Assistant</p>
+                <p class="text-xs text-on-surface-variant">Expert Coder with Canvas</p>
               </div>
               <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
             </button>
-            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors" data-model="qwen-image" data-name="Aura imagin">
-              <span class="material-symbols-outlined" style="color:#ff9800;">image</span>
-              <div>
-                <p class="text-sm font-bold text-on-surface">Aura imagin</p>
-                <p class="text-xs text-on-surface-variant">AI Image Generator</p>
-              </div>
-              <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
-            </button>
+
           </div>
         </div>
 
@@ -527,38 +520,69 @@
     </div>
   </div>
 
-  <!-- Code Preview Modal -->
-  <div id="code-preview-modal" class="fixed inset-0 z-[200] hidden flex-col items-center justify-center backdrop-blur-md bg-black/60 p-4 transition-opacity duration-300 opacity-0">
-    <div class="glass-card w-full h-full max-w-6xl max-h-[90vh] rounded-2xl border border-outline-variant/30 flex flex-col shadow-2xl transform transition-transform duration-300 scale-95" id="code-preview-content">
-      <div class="flex items-center justify-between p-3 border-b border-outline-variant/20 bg-black/20 rounded-t-2xl">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-secondary">code_blocks</span>
-          <h3 class="text-sm font-headline font-bold text-on-surface">Code Preview</h3>
+  <!-- Canvas Side Panel (Gemini-style) -->
+  <div id="canvas-panel" class="canvas-panel hidden" aria-label="Canvas Preview">
+    <!-- Canvas Header -->
+    <div class="canvas-header">
+      <div class="canvas-header-left">
+        <div class="canvas-icon-wrap">
+          <span class="material-symbols-outlined" style="color:#00dbe9;font-size:18px;">web</span>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="download-preview-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-on-surface-variant hover:text-[#00dbe9] hover:bg-[#00dbe9]/10 transition-colors" onclick="downloadCodePreview()">
-            <span class="material-symbols-outlined" style="font-size:16px;">download</span> Download HTML
-          </button>
-          <button id="close-preview-btn" class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors" onclick="closeCodePreview()">
-            <span class="material-symbols-outlined" style="font-size:18px;">close</span>
-          </button>
+        <div>
+          <p class="canvas-title" id="canvas-title">Canvas</p>
+          <p class="canvas-subtitle" id="canvas-subtitle">Writing code...</p>
         </div>
       </div>
-      <div class="flex-1 bg-white w-full rounded-b-2xl overflow-hidden relative">
-        <iframe id="code-preview-iframe" class="w-full h-full border-none" sandbox="allow-scripts allow-modals"></iframe>
+      <div class="canvas-header-right">
+        <!-- Tab switcher: Preview / Code -->
+        <div class="canvas-tab-bar">
+          <button id="canvas-tab-preview" class="canvas-tab active" onclick="switchCanvasTab('preview')">
+            <span class="material-symbols-outlined" style="font-size:15px;">play_circle</span> Preview
+          </button>
+          <button id="canvas-tab-code" class="canvas-tab" onclick="switchCanvasTab('code')">
+            <span class="material-symbols-outlined" style="font-size:15px;">code</span> Code
+          </button>
+        </div>
+        <button id="canvas-download-btn" class="canvas-action-btn" title="Download HTML" onclick="downloadCodePreview()">
+          <span class="material-symbols-outlined" style="font-size:18px;">download</span>
+        </button>
+        <button id="canvas-close-btn" class="canvas-action-btn" title="Close Canvas" onclick="closeCodePreview()">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Canvas Body -->
+    <div class="canvas-body">
+      <!-- Preview Tab -->
+      <div id="canvas-preview-tab" class="canvas-tab-content active">
+        <!-- Live code indicator (shown while streaming) -->
+        <div id="canvas-live-indicator" class="canvas-live-badge hidden">
+          <span class="canvas-live-dot"></span> Live
+        </div>
+        <iframe id="code-preview-iframe" class="canvas-iframe" sandbox="allow-scripts allow-modals allow-same-origin"></iframe>
+      </div>
+      <!-- Code Tab -->
+      <div id="canvas-code-tab" class="canvas-tab-content hidden">
+        <pre id="canvas-code-view" class="canvas-code-pre"><code id="canvas-code-content" class="language-html"></code></pre>
       </div>
     </div>
   </div>
+
+  <!-- Canvas Backdrop (mobile only) -->
+  <div id="canvas-backdrop" class="canvas-backdrop hidden" onclick="closeCodePreview()"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
-  <!-- App Scripts -->
-  <script src="/js/firebase-config.js"></script>
-  <script src="/js/auth.js"></script>
-  <script src="/js/chat.js"></script>
+  <!-- html2pdf for direct PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+  <!-- App Scripts -->
+  <script src="/js/firebase-config.js?v=2"></script>
+  <script src="/js/auth.js?v=2"></script>
+  <script src="/js/chat.js?v=8"></script>
 
 </body>
 </html>
