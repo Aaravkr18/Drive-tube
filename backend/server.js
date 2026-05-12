@@ -108,7 +108,7 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     }
   }
 
-  let targetModel = model || "z-ai/glm4.7";
+  let targetModel = model || "qwen/qwen3.5-122b-a10b";
 
   // Check if user is requesting to generate an image
   const lastMsg = messages.slice().reverse().find(m => m.role === "user");
@@ -128,8 +128,8 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
   let baseURL = process.env.AI_BASE_URL || "https://integrate.api.nvidia.com/v1";
   let activeApiKey = null;
   
-  if (targetModel === "z-ai/glm4.7") {
-    activeApiKey = process.env.GLM_API_KEY;
+  if (targetModel === "qwen/qwen3.5-122b-a10b") {
+    activeApiKey = process.env.QWEN_API_KEY;
   } else if (targetModel === "openai/gpt-oss-120b") {
     activeApiKey = process.env.GPT_OSS_120B_API_KEY;
   } else if (targetModel === "stepfun-ai/step-3.5-flash") {
@@ -261,9 +261,8 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       params.top_p = 1.0;
     }
 
-    // Specialized Thinking Parameters for GLM 4.7
-    if (targetModel === "z-ai/glm4.7") {
-      params.chat_template_kwargs = { "enable_thinking": true, "clear_thinking": false };
+    // Specialized Parameters for Qwen 3.5 122B
+    if (targetModel === "qwen/qwen3.5-122b-a10b") {
       params.max_tokens = 16384;
     }
 
