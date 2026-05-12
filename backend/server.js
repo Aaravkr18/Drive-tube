@@ -282,18 +282,78 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
 
     const stream = await activeAiClient.chat.completions.create(params);
 
+    // Buffer to handle <think>...</think> blocks that may span multiple chunks
+    let thinkBuffer = "";
+    let insideThink = false;
+
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta || {};
-      const content = delta.content;
+      let content = delta.content || "";
       const reasoning = delta.reasoning_content;
-      
+
+      // Always emit reasoning_content tokens directly
       if (reasoning) {
         res.write(`data: ${JSON.stringify({ reasoning })}\n\n`);
       }
-      
+
       if (content) {
-        res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        // Handle <think>...</think> blocks embedded in content (Qwen 3.5 style)
+        thinkBuffer += content;
+
+        // Process the buffer — extract complete <think> blocks
+        let processed = "";
+        let remaining = thinkBuffer;
+
+        while (remaining.length > 0) {
+          if (insideThink) {
+            const closeIdx = remaining.indexOf("</think>");
+            if (closeIdx !== -1) {
+              // Found closing tag — emit buffered reasoning
+              const reasoningChunk = remaining.slice(0, closeIdx);
+              if (reasoningChunk) {
+                res.write(`data: ${JSON.stringify({ reasoning: reasoningChunk })}\n\n`);
+              }
+              insideThink = false;
+              remaining = remaining.slice(closeIdx + 8); // skip </think>
+            } else {
+              // Still inside think block — buffer and wait for more chunks
+              // But emit what we have as reasoning (safe to stream partial)
+              if (remaining.length > 200) {
+                // Flush large chunks to avoid memory buildup
+                res.write(`data: ${JSON.stringify({ reasoning: remaining })}\n\n`);
+                remaining = "";
+              }
+              break;
+            }
+          } else {
+            const openIdx = remaining.indexOf("<think>");
+            if (openIdx !== -1) {
+              // Emit any text before <think> as normal content
+              const before = remaining.slice(0, openIdx);
+              if (before) processed += before;
+              insideThink = true;
+              remaining = remaining.slice(openIdx + 7); // skip <think>
+            } else {
+              // No <think> tag — safe to emit as content
+              processed += remaining;
+              remaining = "";
+            }
+          }
+        }
+
+        thinkBuffer = remaining; // Keep unprocessed remainder for next chunk
+
+        if (processed) {
+          res.write(`data: ${JSON.stringify({ content: processed })}\n\n`);
+        }
       }
+    }
+
+    // Flush any remaining think buffer content
+    if (thinkBuffer && insideThink) {
+      res.write(`data: ${JSON.stringify({ reasoning: thinkBuffer })}\n\n`);
+    } else if (thinkBuffer) {
+      res.write(`data: ${JSON.stringify({ content: thinkBuffer })}\n\n`);
     }
     // Send done AFTER the loop finishes to ensure all chunks are processed
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
