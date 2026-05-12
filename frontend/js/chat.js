@@ -1550,14 +1550,14 @@ async function getAuraResponse(multimodalState = {}) {
     }
 
     // Finalize: remove typing cursor, wire lightbox, append action bar
-    // Now collapse reasoning block after stream is fully complete
+    // Keep reasoning block open after stream is fully complete
     if (reasoningEl) {
       if (reasoningEl._timer) { clearInterval(reasoningEl._timer); reasoningEl._timer = null; }
-      reasoningEl.open = false;
+      reasoningEl.open = true;
       const summary = reasoningEl.querySelector("summary");
       if (summary) {
         const elapsed = Math.round((Date.now() - (reasoningEl._startTime || Date.now())) / 1000);
-        summary.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">psychology</span>View reasoning (${elapsed}s)`;
+        summary.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">psychology</span>Reasoning (${elapsed}s)`;
       }
     }
     const answerEl = bubbleEl.querySelector(".answer-content");
