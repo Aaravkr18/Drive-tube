@@ -47,7 +47,12 @@ let conversationHistory = [];
 let isStreaming = false;
 let currentChatId = generateId();
 let attachedFiles = []; // Array of { filename, mimeType, data, isImage, size }
-let currentModel = localStorage.getItem("selected_model") || "moonshotai/kimi-k2.6";
+let currentModel = localStorage.getItem("selected_model") || "mistralai/mistral-small-4-119b-2603";
+// Migration: If user has old Kimi model in local storage, force update it to Mistral
+if (currentModel === "moonshotai/kimi-k2.6") {
+  currentModel = "mistralai/mistral-small-4-119b-2603";
+  localStorage.setItem("selected_model", currentModel);
+}
 let currentModelName = localStorage.getItem("selected_model_name") || "Aura 1";
 let abortController = null; // For stopping generation
 
@@ -73,7 +78,7 @@ function updateAura1ToggleUI() {
       modeFastBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface";
       modeDeepThinkBtn.dataset.active = "true";
       modeFastBtn.removeAttribute("data-active");
-      currentModel = "moonshotai/kimi-k2.6";
+      currentModel = "mistralai/mistral-small-4-119b-2603";
     } else {
       modeFastBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface bg-white/10 shadow-sm";
       modeDeepThinkBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface";
@@ -817,6 +822,9 @@ let _previousChatId = null;
 let _previousHistory = null;
 
 function createNewChat(skipUndo = false) {
+  // (#1) Stop any ongoing generation to prevent background streams from re-opening Canvas
+  stopGeneration();
+
   // If there's an active conversation, offer undo (#3)
   if (!skipUndo && conversationHistory.length > 0) {
     _previousChatId = currentChatId;
@@ -832,10 +840,8 @@ function createNewChat(skipUndo = false) {
   artifactStore.clear();
   artifactCounter = 0;
   
-  // Close Canvas if open
-  if (document.body.classList.contains("canvas-open")) {
-    window.closeCodePreview();
-  }
+  // (#2) Unconditionally close Canvas and reset its state
+  window.closeCodePreview();
   
   if (heroSection) heroSection.style.display = "";
   if (emptyState) emptyState.style.display = "flex";
@@ -1402,6 +1408,10 @@ async function getAuraResponse(multimodalState = {}) {
   abortController = new AbortController();
   updateSendButton(true);
   setOrbState('thinking');
+
+  // Hide empty state CTA when response starts
+  const ctaEl = document.getElementById('empty-state-cta');
+  if (ctaEl) ctaEl.style.display = 'none';
 
   const typingEl = showTypingIndicator(multimodalState);
 
@@ -2966,6 +2976,13 @@ if (micBtn) {
       chatInput.placeholder = "Listening...";
     };
 
+    recognition.onstart = () => {
+      isRecording = true;
+      micBtn.classList.add("recording");
+      chatInput.placeholder = "Listening...";
+      showToast("Listening...", "info");
+    };
+
     recognition.onresult = (event) => {
       let finalTranscript = '';
       let interimTranscript = '';
@@ -2997,9 +3014,7 @@ if (micBtn) {
         if (event.error === 'not-allowed') {
           errorMsg = "Please allow microphone access in your browser settings.";
         } else if (event.error === 'network') {
-          errorMsg = "Voice input requires an active internet connection.";
-        } else if (event.error === 'audio-capture') {
-          errorMsg = "No microphone found. Please check your hardware.";
+          errorMsg = "Voice input requires an internet connection.";
         }
         showToast(errorMsg, "error");
       }
@@ -3027,4 +3042,39 @@ if (micBtn) {
       showToast("Voice input is not supported in this browser.", "error");
     });
   }
+}
+
+// ── Canvas Actions (Copy / Download) ──
+const canvasCopyBtn = document.getElementById("canvas-copy-btn");
+const canvasDownloadBtn = document.getElementById("canvas-download-btn");
+
+if (canvasCopyBtn) {
+  canvasCopyBtn.addEventListener("click", () => {
+    if (window.currentPreviewCode) {
+      navigator.clipboard.writeText(window.currentPreviewCode).then(() => {
+        showToast("Code copied to clipboard", "success");
+      });
+    } else {
+      showToast("No code to copy", "error");
+    }
+  });
+}
+
+if (canvasDownloadBtn) {
+  canvasDownloadBtn.addEventListener("click", () => {
+    if (window.currentPreviewCode) {
+      const blob = new Blob([window.currentPreviewCode], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "aura-coder-export.html";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Download started", "success");
+    } else {
+      showToast("No code to download", "error");
+    }
+  });
 }

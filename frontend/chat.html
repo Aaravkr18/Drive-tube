@@ -259,7 +259,7 @@
           <div class="orb-glow"></div>
         </div>
       </div>
-      <p class="text-sm text-on-surface-variant opacity-60 mb-4 text-center px-4" style="max-width: 320px; font-family: 'Inter', sans-serif;">Ask me anything — from science to code to creative writing.</p>
+      <p class="text-sm text-on-surface-variant opacity-100 mb-4 text-center px-4" style="max-width: 320px; font-family: 'Inter', sans-serif;">Ask me anything — from science to code to creative writing.</p>
       <p id="empty-state-cta" class="empty-state-cta mb-5">↓ Type a message to begin ↓</p>
       <!-- Category Chips -->
       <div class="flex flex-wrap justify-center gap-2 px-4" id="category-chips" style="max-width: 420px;">
@@ -295,7 +295,7 @@
           </button>
           <!-- Dropdown -->
           <div id="model-dropdown" class="absolute bottom-full left-0 w-60 glass-card border border-outline-variant/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col hidden opacity-0 transition-opacity duration-200 z-50 overflow-hidden mb-2 pointer-events-none transform translate-y-2">
-            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="moonshotai/kimi-k2.6" data-name="Aura 1">
+            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="mistralai/mistral-small-4-119b-2603" data-name="Aura 1">
               <span class="material-symbols-outlined text-primary">auto_awesome</span>
               <div>
                 <p class="text-sm font-bold text-on-surface">Aura 1</p>
@@ -304,20 +304,41 @@
               <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
             </button>
             <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="openai/gpt-oss-120b" data-name="Aura 2">
-              <span class="material-symbols-outlined" style="color:#4caf50;">agriculture</span>
+              <span class="material-symbols-outlined" style="color:#4caf50;">translate</span>
               <div>
                 <p class="text-sm font-bold text-on-surface">Aura 2</p>
                 <p class="text-xs text-on-surface-variant">Bilingual Explainer</p>
               </div>
               <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
             </button>
-            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors" data-model="stepfun-ai/step-3.5-flash" data-name="Aura Coder">
+            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="stepfun-ai/step-3.5-flash" data-name="Aura Coder">
               <span class="material-symbols-outlined text-secondary">code</span>
               <div>
                 <p class="text-sm font-bold text-on-surface">Aura Coder</p>
                 <p class="text-xs text-on-surface-variant">Expert Coder with Canvas</p>
               </div>
               <span class="material-symbols-outlined model-active-check" style="font-variation-settings:'FILL' 1;">check_circle</span>
+            </button>
+            <button class="model-option opacity-40 cursor-not-allowed flex items-center gap-3 px-4 py-3.5 text-left border-b border-outline-variant/10" disabled>
+              <span class="material-symbols-outlined" style="color:#ff9800;">visibility</span>
+              <div>
+                <p class="text-sm font-bold text-on-surface">Aura Vision</p>
+                <p class="text-xs text-on-surface-variant">Coming Soon · Image AI</p>
+              </div>
+            </button>
+            <button class="model-option opacity-40 cursor-not-allowed flex items-center gap-3 px-4 py-3.5 text-left border-b border-outline-variant/10" disabled>
+              <span class="material-symbols-outlined" style="color:#ff5722;">mic</span>
+              <div>
+                <p class="text-sm font-bold text-on-surface">Aura Voice</p>
+                <p class="text-xs text-on-surface-variant">Coming Soon · Real-time Voice</p>
+              </div>
+            </button>
+            <button class="model-option opacity-40 cursor-not-allowed flex items-center gap-3 px-4 py-3.5 text-left" disabled>
+              <span class="material-symbols-outlined" style="color:#2196f3;">search</span>
+              <div>
+                <p class="text-sm font-bold text-on-surface">Aura Search</p>
+                <p class="text-xs text-on-surface-variant">Coming Soon · Web Intelligence</p>
+              </div>
             </button>
 
           </div>
@@ -584,7 +605,7 @@
         <div id="canvas-live-indicator" class="canvas-live-badge hidden">
           <span class="canvas-live-dot"></span> Live
         </div>
-        <iframe id="code-preview-iframe" class="canvas-iframe" sandbox="allow-scripts allow-modals allow-same-origin"></iframe>
+        <iframe id="code-preview-iframe" class="canvas-iframe" sandbox="allow-scripts allow-modals allow-same-origin" srcdoc="<html style='background:#111318;color:#e2e2e9;font-family:sans-serif;height:100%;display:flex;align-items:center;justify-content:center;'><body style='text-align:center;'><h2>Aura is cooking...</h2><style>h2{animation:pulse 2s infinite;}@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}</style></body></html>"></iframe>
       </div>
       <!-- Code Tab -->
       <div id="canvas-code-tab" class="canvas-tab-content hidden">

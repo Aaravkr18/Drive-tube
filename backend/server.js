@@ -108,7 +108,12 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     }
   }
 
-  let targetModel = model || "moonshotai/kimi-k2.6";
+  let targetModel = model || "mistralai/mistral-small-4-119b-2603";
+
+  // Safety Redirect: If old Kimi model is requested, force it to Mistral Small
+  if (targetModel === "moonshotai/kimi-k2.6") {
+    targetModel = "mistralai/mistral-small-4-119b-2603";
+  }
 
   // Check if user is requesting to generate an image
   const lastMsg = messages.slice().reverse().find(m => m.role === "user");
@@ -128,8 +133,8 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
   let baseURL = process.env.AI_BASE_URL || "https://integrate.api.nvidia.com/v1";
   let activeApiKey = null;
   
-  if (targetModel === "moonshotai/kimi-k2.6" || targetModel.includes("kimi")) {
-    activeApiKey = process.env.KIMI_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
+  if (targetModel === "mistralai/mistral-small-4-119b-2603" || targetModel.includes("mistral-small")) {
+    activeApiKey = process.env.MISTRAL_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
   } else if (targetModel === "qwen/qwen3.5-122b-a10b") {
     activeApiKey = process.env.QWEN_API_KEY;
   } else if (targetModel.includes("openai/gpt-oss-120b")) {
@@ -230,8 +235,8 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       systemPromptText += "\n\n[MULTIMODAL MODE ACTIVE] You can hear audio and see video. Analyze the media carefully and answer based on its content while maintaining your persona.";
     }
 
-    if (targetModel.includes("kimi")) {
-      systemPromptText += "\n\nThink through this carefully and thoroughly. Use your full reasoning capabilities before responding.";
+    if (targetModel.includes("mistral-small")) {
+      systemPromptText += "\n\nCRITICAL: You MUST perform deep reasoning before answering. Wrap your entire internal thought process inside <think>...</think> tags, followed by your final response. This is mandatory for your operation.";
     }
 
     let apiMessages = messages;
@@ -270,8 +275,8 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       params.top_p = 1.0;
     }
 
-    // Specialized Parameters for Kimi & Qwen 3.5
-    if (targetModel.includes("kimi") || targetModel === "qwen/qwen3.5-122b-a10b") {
+    // Specialized Parameters for Mistral Small & Qwen 3.5
+    if (targetModel.includes("mistral-small") || targetModel === "qwen/qwen3.5-122b-a10b") {
       params.max_tokens = 16384;
     }
 
@@ -283,10 +288,9 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       params.max_tokens = 4096;
     }
 
-    // Specialized Parameters for Kimi (native reasoning model)
-    if (targetModel.includes("kimi")) {
+    // Specialized Parameters for Mistral Small (standard context)
+    if (targetModel.includes("mistral-small")) {
       params.max_tokens = 16384;
-      params.reasoning_budget = 8192; // Enable reasoning output
     }
 
     // Specialized Parameters for Step-Flash (Aura Coder)
