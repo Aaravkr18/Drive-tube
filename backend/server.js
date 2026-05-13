@@ -108,7 +108,7 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     }
   }
 
-  let targetModel = model || "qwen/qwen3.5-122b-a10b";
+  let targetModel = model || "moonshotai/kimi-k2.6";
 
   // Check if user is requesting to generate an image
   const lastMsg = messages.slice().reverse().find(m => m.role === "user");
@@ -128,9 +128,11 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
   let baseURL = process.env.AI_BASE_URL || "https://integrate.api.nvidia.com/v1";
   let activeApiKey = null;
   
-  if (targetModel === "qwen/qwen3.5-122b-a10b") {
+  if (targetModel === "moonshotai/kimi-k2.6" || targetModel.includes("kimi")) {
+    activeApiKey = process.env.KIMI_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
+  } else if (targetModel === "qwen/qwen3.5-122b-a10b") {
     activeApiKey = process.env.QWEN_API_KEY;
-  } else if (targetModel === "openai/gpt-oss-120b") {
+  } else if (targetModel.includes("openai/gpt-oss-120b")) {
     activeApiKey = process.env.GPT_OSS_120B_API_KEY;
   } else if (targetModel === "stepfun-ai/step-3.5-flash") {
     activeApiKey = process.env.STEP_FLASH_API_KEY;
@@ -228,6 +230,10 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       systemPromptText += "\n\n[MULTIMODAL MODE ACTIVE] You can hear audio and see video. Analyze the media carefully and answer based on its content while maintaining your persona.";
     }
 
+    if (targetModel.includes("kimi")) {
+      systemPromptText += "\n\nThink through this carefully and thoroughly. Use your full reasoning capabilities before responding.";
+    }
+
     let apiMessages = messages;
     
     // Mistral Small 3.1 uses standard OpenAI image_url format — no transformation needed.
@@ -242,8 +248,11 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       }
     }
 
+    // Map pseudo-models back to real models
+    let finalApiModel = targetModel;
+
     const params = {
-      model: targetModel,
+      model: finalApiModel,
       messages: [
         { role: "system", content: systemPromptText },
         ...apiMessages,
@@ -261,8 +270,8 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       params.top_p = 1.0;
     }
 
-    // Specialized Parameters for Qwen 3.5 122B
-    if (targetModel === "qwen/qwen3.5-122b-a10b") {
+    // Specialized Parameters for Kimi & Qwen 3.5
+    if (targetModel.includes("kimi") || targetModel === "qwen/qwen3.5-122b-a10b") {
       params.max_tokens = 16384;
     }
 
@@ -272,6 +281,12 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       params.reasoning_budget = 0;
       params.chat_template_kwargs = { "enable_thinking": false, "clear_thinking": true };
       params.max_tokens = 4096;
+    }
+
+    // Specialized Parameters for Kimi (native reasoning model)
+    if (targetModel.includes("kimi")) {
+      params.max_tokens = 16384;
+      params.reasoning_budget = 8192; // Enable reasoning output
     }
 
     // Specialized Parameters for Step-Flash (Aura Coder)
@@ -306,7 +321,16 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
 
         while (remaining.length > 0) {
           if (insideThink) {
-            const closeIdx = remaining.indexOf("</think>");
+            const closeThinkIdx = remaining.indexOf("</think>");
+            const closeThoughtIdx = remaining.indexOf("</thought>");
+            let closeIdx = -1;
+            let tagLen = 0;
+            if (closeThinkIdx !== -1 && closeThoughtIdx !== -1) {
+              if (closeThinkIdx < closeThoughtIdx) { closeIdx = closeThinkIdx; tagLen = 8; }
+              else { closeIdx = closeThoughtIdx; tagLen = 10; }
+            } else if (closeThinkIdx !== -1) { closeIdx = closeThinkIdx; tagLen = 8; }
+            else if (closeThoughtIdx !== -1) { closeIdx = closeThoughtIdx; tagLen = 10; }
+
             if (closeIdx !== -1) {
               // Found closing tag — emit buffered reasoning
               const reasoningChunk = remaining.slice(0, closeIdx);
@@ -314,27 +338,34 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
                 res.write(`data: ${JSON.stringify({ reasoning: reasoningChunk })}\n\n`);
               }
               insideThink = false;
-              remaining = remaining.slice(closeIdx + 8); // skip </think>
+              remaining = remaining.slice(closeIdx + tagLen);
             } else {
               // Still inside think block — buffer and wait for more chunks
-              // But emit what we have as reasoning (safe to stream partial)
               if (remaining.length > 200) {
-                // Flush large chunks to avoid memory buildup
                 res.write(`data: ${JSON.stringify({ reasoning: remaining })}\n\n`);
                 remaining = "";
               }
               break;
             }
           } else {
-            const openIdx = remaining.indexOf("<think>");
+            const openThinkIdx = remaining.indexOf("<think>");
+            const openThoughtIdx = remaining.indexOf("<thought>");
+            let openIdx = -1;
+            let tagLen = 0;
+            if (openThinkIdx !== -1 && openThoughtIdx !== -1) {
+              if (openThinkIdx < openThoughtIdx) { openIdx = openThinkIdx; tagLen = 7; }
+              else { openIdx = openThoughtIdx; tagLen = 9; }
+            } else if (openThinkIdx !== -1) { openIdx = openThinkIdx; tagLen = 7; }
+            else if (openThoughtIdx !== -1) { openIdx = openThoughtIdx; tagLen = 9; }
+
             if (openIdx !== -1) {
-              // Emit any text before <think> as normal content
+              // Emit any text before tag as normal content
               const before = remaining.slice(0, openIdx);
               if (before) processed += before;
               insideThink = true;
-              remaining = remaining.slice(openIdx + 7); // skip <think>
+              remaining = remaining.slice(openIdx + tagLen);
             } else {
-              // No <think> tag — safe to emit as content
+              // No tags — safe to emit as content
               processed += remaining;
               remaining = "";
             }

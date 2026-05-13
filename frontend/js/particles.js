@@ -1,103 +1,143 @@
-// Particle Background Effect
+/**
+ * Synapse AI — 3D Hero Background (Three.js)
+ * Implements a liquid 3D orb and organic particle system
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
-  const canvas = document.getElementById('particle-canvas');
+  const canvas = document.getElementById('hero-canvas');
   if (!canvas) return;
 
-  const ctx = canvas.getContext('2d');
-  let width, height;
-  let particles = [];
-  const PARTICLE_COUNT = 300; // Adjust for density
+  // --- Scene Setup ---
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    alpha: true,
+    antialias: true
+  });
   
-  function resize() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  // --- Liquid Orb ---
+  // We use an IcosahedronGeometry with high detail for smooth displacement
+  const orbGeometry = new THREE.IcosahedronGeometry(4, 50);
+  
+  // Custom Material with subtle glass/liquid properties
+  const orbMaterial = new THREE.MeshPhongMaterial({
+    color: 0x00dbe9,
+    emissive: 0x7701d0,
+    emissiveIntensity: 0.2,
+    shininess: 100,
+    transparent: true,
+    opacity: 0.7,
+    wireframe: false,
+    flatShading: false
+  });
+
+  const orb = new THREE.Mesh(orbGeometry, orbMaterial);
+  scene.add(orb);
+
+  // Store original positions for vertex displacement
+  const originalPositions = orbGeometry.attributes.position.array.slice();
+
+  // --- Particles ---
+  const particlesCount = 1500;
+  const posArray = new Float32Array(particlesCount * 3);
+  
+  for (let i = 0; i < particlesCount * 3; i++) {
+    posArray[i] = (Math.random() - 0.5) * 25;
   }
   
-  window.addEventListener('resize', resize);
-  resize();
+  const particlesGeometry = new THREE.BufferGeometry();
+  particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+  
+  const particlesMaterial = new THREE.PointsMaterial({
+    size: 0.015,
+    color: 0xdbfcff,
+    transparent: true,
+    opacity: 0.5,
+    blending: THREE.AdditiveBlending
+  });
+  
+  const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+  scene.add(particlesMesh);
 
-  class Particle {
-    constructor() {
-      this.reset();
-      // Randomize initial position across the whole screen
-      this.x = Math.random() * width;
-      this.y = Math.random() * height;
-    }
+  // --- Lights ---
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambientLight);
 
-    reset() {
-      // Start from center-ish for new particles
-      this.x = width / 2 + (Math.random() - 0.5) * 100;
-      this.y = height / 2 + (Math.random() - 0.5) * 100;
-      this.z = Math.random() * width;
-      
-      this.size = Math.random() * 1.5 + 0.5;
-      
-      // Speed and direction
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 0.5 + 0.1;
-      this.vx = Math.cos(angle) * speed;
-      this.vy = Math.sin(angle) * speed;
-      this.vz = (Math.random() - 0.5) * 2;
-    }
+  const mainLight = new THREE.DirectionalLight(0x00dbe9, 1.5);
+  mainLight.position.set(2, 5, 5);
+  scene.add(mainLight);
 
-    update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      this.z += this.vz;
+  const secondaryLight = new THREE.PointLight(0x7701d0, 2);
+  secondaryLight.position.set(-5, -5, 2);
+  scene.add(secondaryLight);
 
-      // Wrap around screen
-      if (this.x < 0) this.x = width;
-      if (this.x > width) this.x = 0;
-      if (this.y < 0) this.y = height;
-      if (this.y > height) this.y = 0;
-    }
+  camera.position.z = 10;
 
-    draw() {
-      // Perspective size (simple fake 3D)
-      const scale = (width / 2) / (this.z + width / 2);
-      if (scale < 0) return;
-      
-      const px = (this.x - width / 2) * scale + width / 2;
-      const py = (this.y - height / 2) * scale + height / 2;
-      const pSize = this.size * scale;
-      
-      // Fade out based on distance (z)
-      const alpha = Math.max(0.1, 1 - (this.z / width));
+  // --- Mouse Interactivity ---
+  let mouseX = 0;
+  let mouseY = 0;
+  let targetX = 0;
+  let targetY = 0;
 
-      ctx.beginPath();
-      ctx.arc(px, py, pSize, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0, 191, 255, ${alpha})`; // #00bfff color matching the reference
-      ctx.fill();
-    }
-  }
+  document.addEventListener('mousemove', (event) => {
+    mouseX = (event.clientX / window.innerWidth) - 0.5;
+    mouseY = (event.clientY / window.innerHeight) - 0.5;
+  });
 
-  function init() {
-    particles = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      particles.push(new Particle());
-    }
-  }
+  // --- Animation Loop ---
+  const clock = new THREE.Clock();
 
   function animate() {
-    ctx.clearRect(0, 0, width, height);
+    const elapsedTime = clock.getElapsedTime();
     
-    // Slow rotation effect for the whole canvas
-    ctx.save();
-    ctx.translate(width / 2, height / 2);
-    const time = Date.now() * 0.00005;
-    ctx.rotate(time);
-    ctx.translate(-width / 2, -height / 2);
+    // Smooth mouse follow
+    targetX += (mouseX - targetX) * 0.05;
+    targetY += (mouseY - targetY) * 0.05;
 
-    for (let i = 0; i < particles.length; i++) {
-      particles[i].update();
-      particles[i].draw();
+    // Rotate Orb
+    orb.rotation.y = elapsedTime * 0.15;
+    orb.rotation.x = elapsedTime * 0.1;
+    
+    // Liquid Displacement (Morphing)
+    const positions = orbGeometry.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = originalPositions[i];
+      const y = originalPositions[i+1];
+      const z = originalPositions[i+2];
+      
+      // Calculate noise-like displacement
+      const noise = Math.sin(x * 1.2 + elapsedTime) * 
+                    Math.cos(y * 1.5 + elapsedTime * 1.1) * 
+                    Math.sin(z * 1.0 + elapsedTime * 0.8) * 0.35;
+      
+      const factor = 1 + noise;
+      positions[i] = x * factor;
+      positions[i+1] = y * factor;
+      positions[i+2] = z * factor;
     }
+    orbGeometry.attributes.position.needsUpdate = true;
+
+    // Subtle parallax based on mouse
+    orb.position.x = targetX * 3;
+    orb.position.y = -targetY * 3;
     
-    ctx.restore();
-    
+    particlesMesh.rotation.y = elapsedTime * 0.05 + targetX * 0.2;
+    particlesMesh.rotation.x = -targetY * 0.2;
+
+    renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
 
-  init();
+  // Handle Resize
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
   animate();
 });

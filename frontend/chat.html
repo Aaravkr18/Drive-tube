@@ -135,6 +135,30 @@
   <!-- Page Transition Overlay -->
   <div id="page-overlay" style="position:fixed;inset:0;background:#050508;z-index:99999;pointer-events:none;opacity:0;transition:opacity 0.3s ease;"></div>
 
+  <!-- Noise Texture Overlay -->
+  <div class="noise-overlay"></div>
+
+  <!-- Liquid Mesh Background -->
+  <div class="mesh-container">
+    <div class="mesh-blob blob-1"></div>
+    <div class="mesh-blob blob-2"></div>
+    <div class="mesh-blob blob-3"></div>
+    <div class="mesh-overlay"></div>
+  </div>
+
+  <!-- Floating Glass Blobs -->
+  <div class="floating-blobs-container">
+    <div class="floating-blob glass-strong" style="left: 10%; top: 20%; animation-duration: 22s; animation-delay: 1s;"></div>
+    <div class="floating-blob glass-strong" style="left: 80%; top: 15%; animation-duration: 18s; animation-delay: 3s;"></div>
+    <div class="floating-blob glass-strong" style="left: 60%; top: 70%; animation-duration: 25s; animation-delay: 0s;"></div>
+    <div class="floating-blob glass-strong" style="left: 15%; top: 80%; animation-duration: 20s; animation-delay: 2s;"></div>
+    <div class="floating-blob glass-strong" style="left: 40%; top: 40%; animation-duration: 15s; animation-delay: 4s;"></div>
+    <div class="floating-blob glass-strong" style="left: 85%; top: 60%; animation-duration: 23s; animation-delay: 1.5s;"></div>
+  </div>
+
+  <!-- 3D Hero Canvas -->
+  <canvas id="hero-canvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"></canvas>
+
   <!-- Drawer Logic -->
   <input class="hidden" id="drawer-toggle" type="checkbox" />
 
@@ -271,7 +295,7 @@
           </button>
           <!-- Dropdown -->
           <div id="model-dropdown" class="absolute bottom-full left-0 w-60 glass-card border border-outline-variant/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col hidden opacity-0 transition-opacity duration-200 z-50 overflow-hidden mb-2 pointer-events-none transform translate-y-2">
-            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="qwen/qwen3.5-122b-a10b" data-name="Aura 1">
+            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="moonshotai/kimi-k2.6" data-name="Aura 1">
               <span class="material-symbols-outlined text-primary">auto_awesome</span>
               <div>
                 <p class="text-sm font-bold text-on-surface">Aura 1</p>
@@ -583,6 +607,9 @@
   <script src="/js/firebase-config.js?v=2"></script>
   <script src="/js/auth.js?v=2"></script>
   <script src="/js/chat.js?v=8"></script>
-
+  
+  <!-- Three.js and Particles -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+  <script src="/js/particles.js"></script>
 </body>
 </html>

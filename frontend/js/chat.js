@@ -47,7 +47,7 @@ let conversationHistory = [];
 let isStreaming = false;
 let currentChatId = generateId();
 let attachedFiles = []; // Array of { filename, mimeType, data, isImage, size }
-let currentModel = localStorage.getItem("selected_model") || "qwen/qwen3.5-122b-a10b";
+let currentModel = localStorage.getItem("selected_model") || "moonshotai/kimi-k2.6";
 let currentModelName = localStorage.getItem("selected_model_name") || "Aura 1";
 let abortController = null; // For stopping generation
 
@@ -73,7 +73,7 @@ function updateAura1ToggleUI() {
       modeFastBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface";
       modeDeepThinkBtn.dataset.active = "true";
       modeFastBtn.removeAttribute("data-active");
-      currentModel = "qwen/qwen3.5-122b-a10b";
+      currentModel = "moonshotai/kimi-k2.6";
     } else {
       modeFastBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface bg-white/10 shadow-sm";
       modeDeepThinkBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface";
