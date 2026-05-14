@@ -1809,12 +1809,20 @@ header.scrolled {
   font-size: 18px;
 }
 
+.model-option {
+  position: relative;
+  background: transparent;
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 .model-option.active .model-active-check {
   display: flex;
 }
 
 .model-option.active {
-  background: rgba(0, 219, 233, 0.06);
+  background: rgba(0, 219, 233, 0.1) !important;
 }
 
 /* ── Scroll-to-Bottom Button Glow ── */
@@ -2704,8 +2712,22 @@ html:not(.dark) .history-search-wrap input.history-search-input::placeholder {
 
   /* Model option touch targets */
   .model-option {
-    min-height: 52px;
-    padding: 0.75rem 1rem !important;
+    min-height: 58px;
+    padding: 0.85rem 1.25rem !important;
+    background: transparent !important;
+  }
+
+  .model-option.active {
+    background: rgba(0, 219, 233, 0.15) !important;
+  }
+
+  /* Ensure file input is hidden on all mobile browsers */
+  #file-input.hidden {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    position: absolute !important;
   }
 }
 
@@ -3074,8 +3096,21 @@ html:not(.dark) .history-search-wrap input.history-search-input::placeholder {
 
   /* Input bar: slightly smaller radius for more space */
   #text-input-bar {
-    padding: 0.2rem !important;
-    border-radius: 22px !important;
+    padding: 0.25rem 0.35rem !important;
+    border-radius: 28px !important;
+    gap: 0.25rem !important;
+  }
+
+  /* Make sure buttons don't shrink and stay aligned */
+  #attach-btn, #mic-btn, #stop-btn, #send-btn {
+    flex-shrink: 0 !important;
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  #chat-input {
+    font-size: 16px !important; /* Prevent iOS zoom on focus */
+    padding: 0.5rem 0.25rem !important;
   }
 
   /* Scroll-to-bottom: don't overlap input */
