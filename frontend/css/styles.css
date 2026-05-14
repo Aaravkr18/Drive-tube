@@ -139,6 +139,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   overflow: hidden;
   filter: blur(100px) contrast(1.2);
   background: #050508;
+  pointer-events: none;
 }
 
 .mesh-blob {
@@ -194,6 +195,36 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
 
 body, .bg-background {
   background-color: #050508;
+}
+
+/* ── Mobile: Drastically reduce background visuals to prevent overlap ── */
+@media (max-width: 767px) {
+  /* Smaller blobs — prevent them from dominating mobile screen */
+  .mesh-blob {
+    width: 50vw !important;
+    height: 50vw !important;
+    opacity: 0.25 !important;
+  }
+
+  .blob-3 {
+    width: 40vw !important;
+    height: 40vw !important;
+  }
+
+  /* Hide the heavy Three.js canvas on mobile — saves CPU & prevents visual bleed */
+  #hero-canvas {
+    display: none !important;
+  }
+
+  /* Hide floating glass blobs on mobile — they add clutter */
+  .floating-blobs-container {
+    display: none !important;
+  }
+
+  /* Add stronger dark overlay to keep text legible over gradient blobs */
+  .mesh-overlay {
+    background: radial-gradient(circle at center, rgba(5,5,8,0.4), #050508 75%) !important;
+  }
 }
 
 /* ── Noise Texture Overlay ── */

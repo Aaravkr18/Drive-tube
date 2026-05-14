@@ -4,6 +4,9 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Skip Three.js on mobile — too heavy and causes visual bleed over UI
+  if (window.innerWidth <= 767) return;
+
   const canvas = document.getElementById('hero-canvas');
   if (!canvas) return;
 
