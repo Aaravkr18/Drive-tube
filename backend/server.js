@@ -276,8 +276,17 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     }
 
     // Specialized Parameters for Mistral Small & Qwen 3.5
+    // Keep max_tokens at 8192 — Mistral Small's NVIDIA endpoint has a 64K combined
+    // context cap (input + output). 16384 was blowing past that limit on long chats.
     if (targetModel.includes("mistral-small") || targetModel === "qwen/qwen3.5-122b-a10b") {
-      params.max_tokens = 16384;
+      params.max_tokens = 8192;
+      // Truncate history to last 20 messages to keep input tokens well under budget
+      if (params.messages.length > 22) { // 22 = system + 20 history + 1 current
+        params.messages = [
+          params.messages[0], // keep system prompt
+          ...params.messages.slice(-21) // keep last 21 (20 history + 1 current user msg)
+        ];
+      }
     }
 
     // Specialized Parameters for Nemotron Omni (Audio/Video)
@@ -286,11 +295,6 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       params.reasoning_budget = 0;
       params.chat_template_kwargs = { "enable_thinking": false, "clear_thinking": true };
       params.max_tokens = 4096;
-    }
-
-    // Specialized Parameters for Mistral Small (standard context)
-    if (targetModel.includes("mistral-small")) {
-      params.max_tokens = 16384;
     }
 
     // Specialized Parameters for Step-Flash (Aura Coder)
@@ -323,6 +327,20 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
         let processed = "";
         let remaining = thinkBuffer;
 
+        // Helper: find longest suffix of str that is a prefix of any of the given tags
+        function partialTagHoldback(str, tags) {
+          let hold = 0;
+          for (const tag of tags) {
+            for (let len = Math.min(tag.length - 1, str.length); len >= 1; len--) {
+              if (str.endsWith(tag.slice(0, len))) {
+                hold = Math.max(hold, len);
+                break;
+              }
+            }
+          }
+          return hold;
+        }
+
         while (remaining.length > 0) {
           if (insideThink) {
             const closeThinkIdx = remaining.indexOf("</think>");
@@ -344,11 +362,11 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
               insideThink = false;
               remaining = remaining.slice(closeIdx + tagLen);
             } else {
-              // Still inside think block — buffer and wait for more chunks
-              if (remaining.length > 200) {
-                res.write(`data: ${JSON.stringify({ reasoning: remaining })}\n\n`);
-                remaining = "";
-              }
+              // No closing tag yet — emit safe portion, hold back potential partial tag
+              const hold = partialTagHoldback(remaining, ['</think>', '</thought>']);
+              const safe = remaining.slice(0, remaining.length - hold);
+              if (safe) res.write(`data: ${JSON.stringify({ reasoning: safe })}\n\n`);
+              remaining = remaining.slice(remaining.length - hold);
               break;
             }
           } else {
@@ -369,9 +387,12 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
               insideThink = true;
               remaining = remaining.slice(openIdx + tagLen);
             } else {
-              // No tags — safe to emit as content
-              processed += remaining;
-              remaining = "";
+              // No complete opening tag — hold back any partial tag prefix at end
+              // e.g. if chunk ends with '<' or '<th', don't emit those yet
+              const hold = partialTagHoldback(remaining, ['<think>', '<thought>']);
+              processed += remaining.slice(0, remaining.length - hold);
+              remaining = remaining.slice(remaining.length - hold);
+              break; // remaining (if any) becomes new thinkBuffer
             }
           }
         }

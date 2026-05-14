@@ -1099,12 +1099,12 @@ function sendMessage() {
         }
       }
     } else {
-      // Only text files attached
+      // Only text files attached — user message first, then file contents
       let combinedFileContent = "";
       for (const file of attachedFiles) {
-        combinedFileContent += `Attached file contents (${file.filename}):\n\n${file.data}\n\n`;
+        combinedFileContent += `\n\nAttached file contents (${file.filename}):\n\n${file.data}`;
       }
-      backendPayload = combinedFileContent + text;
+      backendPayload = (text || "Please analyze the attached file(s).") + combinedFileContent;
     }
   }
 
@@ -2969,12 +2969,6 @@ if (micBtn) {
     recognition.lang = 'en-US';
     
     let isRecording = false;
-
-    recognition.onstart = () => {
-      isRecording = true;
-      micBtn.classList.add("recording");
-      chatInput.placeholder = "Listening...";
-    };
 
     recognition.onstart = () => {
       isRecording = true;

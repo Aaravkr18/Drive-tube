@@ -350,8 +350,11 @@
         <textarea
           id="chat-input"
           class="chat-input-field bg-transparent border-none focus:ring-0 flex-1 text-on-surface placeholder:text-outline/50 font-body py-2.5 px-1 resize-none overflow-hidden text-[15px] leading-[1.4]"
-          placeholder="Ask Aura"
+          placeholder="Message Aura..."
           rows="1"
+          inputmode="text"
+          autocomplete="off"
+          spellcheck="true"
           style="max-height: 120px;"
         ></textarea>
         <!-- MIC BUTTON -->
@@ -376,8 +379,12 @@
 
   <!-- History Modal -->
   <div id="history-modal" class="fixed inset-0 z-[100] hidden flex-col items-end sm:items-center justify-end sm:justify-center backdrop-blur-md bg-black/40 p-0 sm:p-4 transition-opacity duration-300 opacity-0" role="dialog" aria-modal="true" aria-label="Chat history">
-    <div class="glass-card w-full max-w-lg rounded-t-2xl sm:rounded-2xl border border-outline-variant/30 flex flex-col max-h-[85vh] shadow-2xl transform transition-transform duration-300 translate-y-full sm:translate-y-0 sm:scale-95" id="history-modal-content" style="padding-bottom: env(safe-area-inset-bottom, 0px);">
-      <div class="flex items-center justify-between p-4 sm:p-5 border-b border-outline-variant/20">
+    <div class="glass-card w-full max-w-lg rounded-t-[28px] sm:rounded-2xl border border-outline-variant/30 flex flex-col max-h-[88vh] shadow-2xl transform transition-transform duration-300 translate-y-full sm:translate-y-0 sm:scale-95" id="history-modal-content" style="padding-bottom: env(safe-area-inset-bottom, 0px);">
+      <!-- Mobile drag handle -->
+      <div class="sm:hidden flex justify-center pt-3 pb-1">
+        <div class="w-10 h-1 rounded-full bg-outline-variant/40"></div>
+      </div>
+      <div class="flex items-center justify-between px-4 sm:px-5 pt-2 sm:pt-5 pb-3 sm:pb-4 border-b border-outline-variant/20">
         <h3 class="text-lg sm:text-xl font-headline font-bold text-primary">Chat History</h3>
         <button id="close-history-btn" class="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors">
           <span class="material-symbols-outlined">close</span>
@@ -420,11 +427,15 @@
 
 
   <!-- AI Personality Modal -->
-  <div id="settings-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-300" role="dialog" aria-modal="true" aria-label="AI Personality settings">
-    <div class="bg-surface-container border border-outline-variant/30 w-[92%] max-w-lg rounded-2xl shadow-2xl transform scale-95 transition-transform duration-300 max-h-[85vh] flex flex-col" id="settings-modal-content">
+  <div id="settings-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] hidden flex items-end sm:items-center justify-center opacity-0 transition-opacity duration-300" role="dialog" aria-modal="true" aria-label="AI Personality settings">
+    <div class="bg-surface-container border border-outline-variant/30 w-full sm:w-[92%] sm:max-w-lg rounded-t-[28px] sm:rounded-2xl shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col" id="settings-modal-content">
+      <!-- Mobile drag handle -->
+      <div class="sm:hidden flex justify-center pt-3 pb-1">
+        <div class="w-10 h-1 rounded-full bg-outline-variant/40"></div>
+      </div>
       
       <!-- Header -->
-      <div class="flex justify-between items-center p-6 pb-4 border-b border-outline-variant/15 flex-shrink-0">
+      <div class="flex justify-between items-center px-6 pt-3 pb-4 border-b border-outline-variant/15 flex-shrink-0">
         <div>
           <h2 class="text-xl font-headline text-on-surface font-bold flex items-center gap-2">
             <span class="material-symbols-outlined text-secondary" style="font-size:22px;">psychology_alt</span>
