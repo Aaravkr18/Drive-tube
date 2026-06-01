@@ -146,6 +146,17 @@
     <div class="mesh-overlay"></div>
   </div>
 
+  <!-- 3D Hero Canvas -->
+  <canvas id="hero-canvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"></canvas>
+
+  <!-- Aurora Borealis Curtain -->
+  <div class="aurora-container" aria-hidden="true">
+    <div class="aurora-band aurora-band-1"></div>
+    <div class="aurora-band aurora-band-2"></div>
+    <div class="aurora-band aurora-band-3"></div>
+    <div class="aurora-band aurora-band-4"></div>
+  </div>
+
   <!-- Floating Glass Blobs -->
   <div class="floating-blobs-container">
     <div class="floating-blob glass-strong" style="left: 10%; top: 20%; animation-duration: 22s; animation-delay: 1s;"></div>
@@ -155,9 +166,6 @@
     <div class="floating-blob glass-strong" style="left: 40%; top: 40%; animation-duration: 15s; animation-delay: 4s;"></div>
     <div class="floating-blob glass-strong" style="left: 85%; top: 60%; animation-duration: 23s; animation-delay: 1.5s;"></div>
   </div>
-
-  <!-- 3D Hero Canvas -->
-  <canvas id="hero-canvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"></canvas>
 
   <!-- Drawer Logic -->
   <input class="hidden" id="drawer-toggle" type="checkbox" />
@@ -226,22 +234,12 @@
 
   <!-- Main Canvas -->
   <main class="min-h-[100dvh] pt-16 pb-28 sm:pb-40 px-3 sm:px-4 md:px-6 flex flex-col items-center max-w-4xl mx-auto relative" style="overflow: visible;">
-    <!-- Noise Texture Overlay -->
-    <div class="noise-overlay"></div>
-
-    <!-- Liquid Mesh Background -->
-    <div class="mesh-container">
-      <div class="mesh-blob blob-1"></div>
-      <div class="mesh-blob blob-2"></div>
-      <div class="mesh-blob blob-3"></div>
-      <div class="mesh-overlay"></div>
-    </div>
 
     <!-- Hero Greeting Section -->
     <section id="hero-section" class="w-full mt-2 sm:mt-10 mb-2 sm:mb-10 text-center space-y-2 sm:space-y-6">
       <div class="relative inline-block">
         <div class="absolute -inset-4 bg-secondary/10 blur-2xl rounded-full"></div>
-        <h2 class="font-headline text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight hero-title text-primary leading-tight">
+        <h2 class="font-headline text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight hero-title text-primary leading-tight" id="aura-greeting">
           Mitrooo! <span class="accent text-secondary">I'm Aura</span>
         </h2>
       </div>
@@ -295,7 +293,7 @@
           </button>
           <!-- Dropdown -->
           <div id="model-dropdown" class="absolute bottom-full left-0 w-60 glass-card border border-outline-variant/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col hidden opacity-0 transition-opacity duration-200 z-50 overflow-hidden mb-2 pointer-events-none transform translate-y-2">
-            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="mistralai/mistral-small-4-119b-2603" data-name="Aura 1">
+            <button class="model-option flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 active:bg-white/10 text-left transition-colors border-b border-outline-variant/10" data-model="minimax/minimax-m2.7" data-name="Aura 1" role="option" aria-selected="true">
               <span class="material-symbols-outlined text-primary">auto_awesome</span>
               <div>
                 <p class="text-sm font-bold text-on-surface">Aura 1</p>
@@ -619,6 +617,56 @@
   <script src="/js/auth.js?v=2"></script>
   <script src="/js/chat.js?v=8"></script>
   
+  <!-- Cursor Glow (desktop only, hidden on mobile via CSS) -->
+  <div class="cursor-glow" id="cursor-glow" aria-hidden="true"></div>
+
+  <!-- Chat UI Upgrade Pack -->
+  <script>
+  (function() {
+    // Cursor glow tracker
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!isMobile && !reducedMotion) {
+      const glow = document.getElementById('cursor-glow');
+      if (glow) {
+        document.addEventListener('mousemove', (e) => {
+          glow.style.left = e.clientX + 'px';
+          glow.style.top  = e.clientY + 'px';
+        }, { passive: true });
+      }
+    }
+
+    // Send button ripple
+    document.addEventListener('DOMContentLoaded', () => {
+      const sendBtn = document.getElementById('send-btn');
+      if (sendBtn) {
+        sendBtn.addEventListener('click', function() {
+          this.classList.remove('ripple');
+          void this.offsetWidth;
+          this.classList.add('ripple');
+          setTimeout(() => this.classList.remove('ripple'), 500);
+        });
+      }
+
+      // Greeting shimmer (Mitrooo heading) — only on desktop
+      if (!isMobile && !reducedMotion) {
+        const greeting = document.getElementById('aura-greeting');
+        if (greeting) {
+          greeting.style.background = 'linear-gradient(90deg, #dbfcff 0%, #00dbe9 30%, #dcb8ff 60%, #dbfcff 100%)';
+          greeting.style.backgroundSize = '300% auto';
+          greeting.style.webkitBackgroundClip = 'text';
+          greeting.style.backgroundClip = 'text';
+          greeting.style.webkitTextFillColor = 'transparent';
+          greeting.style.animation = 'hero-shimmer 5s linear infinite';
+        }
+      }
+
+      // Drawer spring easing is handled via CSS
+      // History item stagger is handled via CSS
+    });
+  })();
+  </script>
+
   <!-- Three.js and Particles -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
   <script src="/js/particles.js?v=2"></script>

@@ -108,11 +108,11 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     }
   }
 
-  let targetModel = model || "mistralai/mistral-small-4-119b-2603";
+  let targetModel = model || "minimax/minimax-m2.7";
 
-  // Safety Redirect: If old Kimi model is requested, force it to Mistral Small
-  if (targetModel === "moonshotai/kimi-k2.6") {
-    targetModel = "mistralai/mistral-small-4-119b-2603";
+  // Safety Redirect: If old Kimi or Mistral model is requested, force it to Minimax
+  if (targetModel === "moonshotai/kimi-k2.6" || targetModel === "mistralai/mistral-small-4-119b-2603") {
+    targetModel = "minimax/minimax-m2.7";
   }
 
   // Check if user is requesting to generate an image
@@ -130,34 +130,39 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     targetModel = "qwen-image";
   }
 
-  let baseURL = process.env.AI_BASE_URL || "https://integrate.api.nvidia.com/v1";
+  // 1. Determine final targetModel based on media types
+  if (hasImage) {
+    targetModel = "mistralai/mistral-large-3-675b-instruct-2512";
+    console.log(`[VISION] Image detected — routing to ${targetModel}`);
+  } else if (hasAudioVideo) {
+    targetModel = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
+    console.log(`[AUDIO/VIDEO] Audio/Video detected — routing to ${targetModel}`);
+  }
+
+  // 2. Assign baseURL and activeApiKey based on the final targetModel
+  // By default, assume NVIDIA API endpoint unless overridden per-model
+  let baseURL = process.env.NVIDIA_BASE_URL || process.env.AI_BASE_URL || "https://integrate.api.nvidia.com/v1";
   let activeApiKey = null;
-  
-  if (targetModel === "mistralai/mistral-small-4-119b-2603" || targetModel.includes("mistral-small")) {
-    activeApiKey = process.env.MISTRAL_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
-  } else if (targetModel === "qwen/qwen3.5-122b-a10b") {
-    activeApiKey = process.env.QWEN_API_KEY;
+
+  if (targetModel.includes("minimax")) {
+    baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+    activeApiKey = process.env.OPENROUTER_API_KEY || process.env.DEFAULT_API_KEY;
   } else if (targetModel.includes("openai/gpt-oss-120b")) {
-    activeApiKey = process.env.GPT_OSS_120B_API_KEY;
+    baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+    activeApiKey = process.env.GPT_OSS_120B_API_KEY || process.env.OPENROUTER_API_KEY || process.env.DEFAULT_API_KEY;
+  } else if (targetModel.includes("mistral-small")) {
+    activeApiKey = process.env.MISTRAL_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
   } else if (targetModel === "stepfun-ai/step-3.5-flash") {
     activeApiKey = process.env.STEP_FLASH_API_KEY;
   } else if (targetModel === "qwen-image") {
     activeApiKey = process.env.QWEN_API_KEY || process.env.DEFAULT_API_KEY;
+  } else if (targetModel === "mistralai/mistral-large-3-675b-instruct-2512") {
+    activeApiKey = process.env.VISION_API_KEY || process.env.DEFAULT_API_KEY;
+  } else if (targetModel === "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning") {
+    activeApiKey = process.env.AUDIO_VIDEO_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
   } else {
     // Default fallback if unsupported model passed
     activeApiKey = process.env.DEFAULT_API_KEY;
-  }
-
-  // If there's an image, route to the vision model regardless of selected model
-  // (Mistral Large 3 is a great default vision model)
-  if (hasImage) {
-    targetModel = "mistralai/mistral-large-3-675b-instruct-2512";
-    activeApiKey = process.env.VISION_API_KEY || process.env.DEFAULT_API_KEY;
-    console.log(`[VISION] Image detected — routing to ${targetModel}`);
-  } else if (hasAudioVideo) {
-    targetModel = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
-    activeApiKey = process.env.AUDIO_VIDEO_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
-    console.log(`[AUDIO/VIDEO] Audio/Video detected — routing to ${targetModel}`);
   }
 
   if (!activeApiKey) {
@@ -235,9 +240,12 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       systemPromptText += "\n\n[MULTIMODAL MODE ACTIVE] You can hear audio and see video. Analyze the media carefully and answer based on its content while maintaining your persona.";
     }
 
+    // Only inject <think> prompt for models that use inline think-tags (not native reasoning_content)
     if (targetModel.includes("mistral-small")) {
       systemPromptText += "\n\nCRITICAL: You MUST perform deep reasoning before answering. Wrap your entire internal thought process inside <think>...</think> tags, followed by your final response. This is mandatory for your operation.";
     }
+    // NOTE: minimax/minimax-m2.7 uses native reasoning_content — no prompt injection needed.
+
 
     let apiMessages = messages;
     
@@ -276,8 +284,7 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
     }
 
     // Specialized Parameters for Mistral Small & Qwen 3.5
-    // Keep max_tokens at 8192 — Mistral Small's NVIDIA endpoint has a 64K combined
-    // context cap (input + output). 16384 was blowing past that limit on long chats.
+    // Keep max_tokens at 8192 — context limit safety for NVIDIA endpoint
     if (targetModel.includes("mistral-small") || targetModel === "qwen/qwen3.5-122b-a10b") {
       params.max_tokens = 8192;
       // Truncate history to last 20 messages to keep input tokens well under budget

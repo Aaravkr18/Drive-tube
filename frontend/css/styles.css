@@ -3504,3 +3504,433 @@ body.canvas-open {
     font-size: 1.2rem !important;
   }
 }
+
+/* ============================================
+   UI/UX UPGRADE PACK — Synapse AI
+   All new rules below. Existing rules untouched.
+   ============================================ */
+
+/* ── Aurora Borealis Curtain Background ── */
+.aurora-container {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  mix-blend-mode: normal;
+}
+
+.aurora-band {
+  position: absolute;
+  width: 130%;
+  height: 35%;
+  left: -15%;
+  mix-blend-mode: screen;
+  filter: blur(60px);
+  animation: aurora-drift 20s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.aurora-band-1 {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(0, 219, 233, 0.10) 40%,
+    rgba(99, 102, 241, 0.07) 70%,
+    transparent 100%
+  );
+  top: 5%;
+  animation-duration: 18s;
+  animation-delay: 0s;
+}
+
+.aurora-band-2 {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(119, 1, 208, 0.09) 40%,
+    rgba(0, 219, 233, 0.05) 70%,
+    transparent 100%
+  );
+  top: 22%;
+  animation-duration: 25s;
+  animation-delay: -7s;
+}
+
+.aurora-band-3 {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(14, 165, 233, 0.07) 40%,
+    rgba(220, 184, 255, 0.05) 70%,
+    transparent 100%
+  );
+  top: 38%;
+  animation-duration: 32s;
+  animation-delay: -14s;
+}
+
+.aurora-band-4 {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(99, 102, 241, 0.06) 40%,
+    transparent 100%
+  );
+  top: 55%;
+  animation-duration: 22s;
+  animation-delay: -4s;
+}
+
+@keyframes aurora-drift {
+  0%   { transform: skewX(-3deg) translateX(-5%) scaleY(0.8);  opacity: 0.6; }
+  30%  { transform: skewX(2deg)  translateX(3%)  scaleY(1.1);  opacity: 1;   }
+  70%  { transform: skewX(-1deg) translateX(-2%) scaleY(0.9);  opacity: 0.8; }
+  100% { transform: skewX(3deg)  translateX(5%)  scaleY(1.05); opacity: 0.7; }
+}
+
+/* Mobile: dim aurora significantly */
+@media (max-width: 767px) {
+  .aurora-band {
+    filter: blur(80px);
+  }
+  .aurora-band-1 { opacity: 0.45; }
+  .aurora-band-2 { opacity: 0.35; }
+  .aurora-band-3, .aurora-band-4 { display: none; }
+}
+
+/* ── Cursor Glow (desktop only) ── */
+.cursor-glow {
+  position: fixed;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: left 0.5s cubic-bezier(0.23, 1, 0.32, 1),
+              top 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+  will-change: left, top;
+}
+
+@media (max-width: 767px) {
+  .cursor-glow { display: none; }
+}
+
+/* ── Drawer: Spring Easing Upgrade ── */
+#drawer {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* ── History Item: Stagger Entrance + Hover Bar ── */
+.history-item {
+  animation: history-item-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  position: relative;
+  overflow: hidden;
+}
+
+.history-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: #00dbe9;
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 0 2px 2px 0;
+}
+
+.history-item:hover::before {
+  transform: scaleY(1);
+}
+
+@keyframes history-item-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.history-item:nth-child(1)  { animation-delay: 0.04s; }
+.history-item:nth-child(2)  { animation-delay: 0.08s; }
+.history-item:nth-child(3)  { animation-delay: 0.12s; }
+.history-item:nth-child(4)  { animation-delay: 0.16s; }
+.history-item:nth-child(5)  { animation-delay: 0.20s; }
+.history-item:nth-child(6)  { animation-delay: 0.24s; }
+.history-item:nth-child(7)  { animation-delay: 0.28s; }
+.history-item:nth-child(8)  { animation-delay: 0.32s; }
+.history-item:nth-child(n+9){ animation-delay: 0.36s; }
+
+/* ── History item delete button reveal on hover ── */
+.history-item .history-delete-btn {
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.history-item:hover .history-delete-btn {
+  opacity: 1;
+  transform: translateX(0);
+}
+@media (hover: none) {
+  .history-item .history-delete-btn { opacity: 0.5; transform: none; }
+}
+
+/* ── AI Message: Organic Appear with Slight Rotation ── */
+@keyframes message-in-ai {
+  from {
+    opacity: 0;
+    transform: translateX(-16px) scale(0.97) rotate(-0.4deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+  }
+}
+
+/* ── AI Avatar: Model-Specific Coloured Ring ── */
+.message-avatar.ai-avatar.model-aura1 {
+  box-shadow: 0 0 0 2px rgba(0, 219, 233, 0.5), 0 2px 10px rgba(119, 1, 208, 0.25);
+}
+.message-avatar.ai-avatar.model-aura2 {
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.5), 0 2px 10px rgba(76, 175, 80, 0.2);
+}
+.message-avatar.ai-avatar.model-coder {
+  box-shadow: 0 0 0 2px rgba(220, 184, 255, 0.5), 0 2px 10px rgba(119, 1, 208, 0.25);
+}
+
+/* Active responding pulse on AI avatar */
+.message-avatar.ai-avatar.responding {
+  animation: avatar-respond-pulse 2s ease-in-out infinite;
+}
+@keyframes avatar-respond-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(0, 219, 233, 0.3), 0 2px 10px rgba(119, 1, 208, 0.2); }
+  50%       { box-shadow: 0 0 0 4px rgba(0, 219, 233, 0.5), 0 4px 20px rgba(0, 219, 233, 0.2); }
+}
+
+/* ── DeepThink Block: Streaming Border Pulse ── */
+.thinking-block.streaming {
+  animation: think-border-pulse 1.8s ease-in-out infinite;
+}
+@keyframes think-border-pulse {
+  0%, 100% { border-left-color: #7701d0; box-shadow: none; }
+  50%       { border-left-color: #dcb8ff; box-shadow: -2px 0 12px rgba(220, 184, 255, 0.3); }
+}
+
+/* Improved collapse animation */
+.thinking-block .thinking-content {
+  transition: max-height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              padding 0.3s ease,
+              opacity 0.3s ease,
+              transform 0.3s ease !important;
+}
+.thinking-block:not([open]) .thinking-content {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ── Code Block: Copy Button Check Animation ── */
+.copy-code-btn .copy-icon {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+.copy-code-btn.copied .copy-icon {
+  transform: scale(1.3);
+}
+.copy-code-btn:hover {
+  background: rgba(0, 219, 233, 0.15);
+  color: #00dbe9;
+  box-shadow: 0 0 12px rgba(0, 219, 233, 0.15);
+}
+
+/* Code block hover glow */
+.code-block-wrapper:hover {
+  box-shadow: 0 0 20px rgba(0, 219, 233, 0.06);
+  transition: box-shadow 0.3s ease;
+}
+
+/* ── Canvas Panel: Spring Slide-in ── */
+.canvas-panel {
+  transform: translateX(100%);
+  transition: transform 0.45s cubic-bezier(0.34, 1.2, 0.64, 1),
+              opacity 0.3s ease;
+  opacity: 0;
+}
+.canvas-panel.open,
+.canvas-panel:not(.hidden) {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* Canvas tab switch glow */
+.canvas-tab.active {
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+.canvas-tab.active.tab-flash {
+  box-shadow: 0 0 14px rgba(0, 219, 233, 0.4);
+}
+
+/* ── PWA Install Banner: Entry Slide-up ── */
+.pwa-install-banner {
+  animation: pwa-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+@keyframes pwa-slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* PWA icon shimmer */
+.pwa-install-banner .pwa-icon {
+  background-size: 200% 200%;
+  animation: pwa-icon-shimmer 3s ease-in-out infinite;
+}
+@keyframes pwa-icon-shimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Link Underline Grow Animation in AI Bubble ── */
+.ai-bubble a {
+  text-decoration: none !important;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0% 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  transition: background-size 0.3s ease, color 0.2s ease;
+}
+.ai-bubble a:hover {
+  background-size: 100% 1px;
+}
+
+/* ── Page Transition: Directional Wipe ── */
+.page-transition-overlay.slide-left {
+  clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+  animation: wipe-left 0.35s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+.page-transition-overlay.slide-right {
+  clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
+  animation: wipe-right 0.35s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+@keyframes wipe-left {
+  to { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+}
+@keyframes wipe-right {
+  to { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+}
+
+/* ── Send Button: Ripple Effect ── */
+#send-btn {
+  position: relative;
+  overflow: hidden;
+}
+#send-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0);
+  opacity: 0;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+  pointer-events: none;
+}
+#send-btn.ripple::after {
+  transform: scale(2.5);
+  opacity: 0;
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+/* ── Greeting Shimmer (Mitrooo! heading) ── */
+.hero-title.shimmer-text {
+  background: linear-gradient(90deg, #dbfcff 0%, #00dbe9 30%, #dcb8ff 60%, #dbfcff 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: hero-shimmer 5s linear infinite;
+}
+@keyframes hero-shimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 300% center; }
+}
+
+/* ── Model Dropdown: Hover Left Accent Bar ── */
+.model-option {
+  position: relative;
+  overflow: hidden;
+}
+.model-option::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: #00dbe9;
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.model-option:hover::before {
+  transform: scaleY(1);
+}
+
+/* ── Blockquote Decorative Quote Mark ── */
+.ai-bubble blockquote {
+  position: relative;
+  overflow: hidden;
+}
+.ai-bubble blockquote::before {
+  content: '\201C';
+  position: absolute;
+  right: 0.5rem;
+  top: -0.5rem;
+  font-size: 4rem;
+  color: rgba(0, 219, 233, 0.08);
+  font-family: serif;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Scroll-to-bottom: Enhanced ── */
+#scroll-to-bottom-btn {
+  animation: scroll-btn-appear 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes scroll-btn-appear {
+  from { transform: scale(0.5) translateY(10px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* ── Reduce motion: disable all new animations ── */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-band,
+  .cursor-glow,
+  .history-item,
+  .pwa-install-banner,
+  .canvas-panel,
+  .hero-title.shimmer-text {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+  .aurora-band { opacity: 0.2; }
+  .canvas-panel { transform: none; opacity: 1; }
+  .ai-bubble a { background-size: 100% 1px; }
+}
+
+/* \u2500\u2500 Drag and Drop Dropzone Animation \u2500\u2500 */
+#text-input-bar {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), 
+              border-color 0.3s ease, 
+              box-shadow 0.3s ease, 
+              background 0.3s ease;
+}
+
+#text-input-bar.drag-active {
+  transform: scale(1.03) translateY(-4px);
+  border-color: rgba(0, 219, 233, 0.8);
+  box-shadow: 0 10px 40px rgba(0, 219, 233, 0.2), inset 0 0 20px rgba(0, 219, 233, 0.1);
+  background: rgba(0, 219, 233, 0.05);
+}

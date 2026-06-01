@@ -47,11 +47,12 @@ let conversationHistory = [];
 let isStreaming = false;
 let currentChatId = generateId();
 let attachedFiles = []; // Array of { filename, mimeType, data, isImage, size }
-let currentModel = localStorage.getItem("selected_model") || "mistralai/mistral-small-4-119b-2603";
-// Migration: If user has old Kimi model in local storage, force update it to Mistral
-if (currentModel === "moonshotai/kimi-k2.6") {
-  currentModel = "mistralai/mistral-small-4-119b-2603";
+let currentModel = localStorage.getItem("selected_model") || "minimax/minimax-m2.7";
+// Migration: If user has old Kimi or Mistral model in local storage, force update it to Minimax
+if (currentModel === "moonshotai/kimi-k2.6" || currentModel === "mistralai/mistral-small-4-119b-2603") {
+  currentModel = "minimax/minimax-m2.7";
   localStorage.setItem("selected_model", currentModel);
+  localStorage.setItem("aura1_mode", "deep_think"); // Reset toggle to Deep Think for new default
 }
 let currentModelName = localStorage.getItem("selected_model_name") || "Aura 1";
 let abortController = null; // For stopping generation
@@ -78,7 +79,7 @@ function updateAura1ToggleUI() {
       modeFastBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface";
       modeDeepThinkBtn.dataset.active = "true";
       modeFastBtn.removeAttribute("data-active");
-      currentModel = "mistralai/mistral-small-4-119b-2603";
+      currentModel = "minimax/minimax-m2.7";
     } else {
       modeFastBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface bg-white/10 shadow-sm";
       modeDeepThinkBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface";
@@ -222,51 +223,109 @@ function compressImage(dataUrl, maxWidth = 1024, quality = 0.7) {
   });
 }
 
-if (fileInput) {
-  fileInput.addEventListener("change", async (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
+async function handleFiles(files) {
+  if (!files.length) return;
 
-    for (const file of files) {
-      if (attachedFiles.length >= 5) {
-        alert("Aura supports a maximum of 5 files.");
-        break;
-      }
-      
-      const isImage = file.type.startsWith("image/");
-      const reader = new FileReader();
-      
-      const readPromise = new Promise((resolve) => {
-        reader.onload = async (ev) => {
-          let fileData = ev.target.result;
-          if (isImage) {
-            fileData = await compressImage(fileData, 1024, 0.7);
-          }
-          attachedFiles.push({
-            filename: file.name,
-            mimeType: isImage ? "image/jpeg" : file.type,
-            data: fileData,
-            isImage: isImage,
-            size: file.size
-          });
-          resolve();
-        };
-      });
-      
-      if (isImage) {
-        reader.readAsDataURL(file);
-      } else {
-        reader.readAsText(file);
-      }
-      
-      await readPromise;
+  for (const file of files) {
+    if (attachedFiles.length >= 5) {
+      alert("Aura supports a maximum of 5 files.");
+      break;
     }
     
-    // Reset file input so re-selecting the same file triggers change event
-    if (fileInput) fileInput.value = "";
-    renderAttachments();
+    // Only allow specific file types (images, text, etc)
+    const validTypes = ["text/plain", "application/json", "text/markdown", "text/csv", "image/png", "image/jpeg", "image/webp", "image/gif"];
+    if (!validTypes.includes(file.type) && !file.type.startsWith("image/")) {
+      console.warn("Unsupported file type:", file.type);
+      continue;
+    }
+    
+    const isImage = file.type.startsWith("image/");
+    const reader = new FileReader();
+    
+    const readPromise = new Promise((resolve) => {
+      reader.onload = async (ev) => {
+        let fileData = ev.target.result;
+        if (isImage) {
+          fileData = await compressImage(fileData, 1024, 0.7);
+        }
+        attachedFiles.push({
+          filename: file.name,
+          mimeType: isImage ? "image/jpeg" : file.type,
+          data: fileData,
+          isImage: isImage,
+          size: file.size
+        });
+        resolve();
+      };
+    });
+    
+    if (isImage) {
+      reader.readAsDataURL(file);
+    } else {
+      reader.readAsText(file);
+    }
+    
+    await readPromise;
+  }
+  
+  // Reset file input so re-selecting the same file triggers change event
+  if (fileInput) fileInput.value = "";
+  renderAttachments();
+}
+
+if (fileInput) {
+  fileInput.addEventListener("change", async (e) => {
+    handleFiles(Array.from(e.target.files));
   });
 }
+
+// ── Drag & Drop / Paste Support ──
+document.addEventListener("paste", (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const files = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  if (files.length > 0) {
+    handleFiles(files);
+  }
+});
+
+const textInputBar = document.getElementById("text-input-bar");
+let dragCounter = 0;
+
+document.addEventListener("dragenter", (e) => {
+  e.preventDefault();
+  dragCounter++;
+  if (textInputBar) textInputBar.classList.add("drag-active");
+});
+
+document.addEventListener("dragover", (e) => {
+  e.preventDefault();
+});
+
+document.addEventListener("dragleave", (e) => {
+  e.preventDefault();
+  dragCounter--;
+  if (dragCounter === 0 && textInputBar) {
+    textInputBar.classList.remove("drag-active");
+  }
+});
+
+document.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dragCounter = 0;
+  if (textInputBar) textInputBar.classList.remove("drag-active");
+  
+  if (e.dataTransfer?.files?.length > 0) {
+    handleFiles(Array.from(e.dataTransfer.files));
+  }
+});
 
 function renderAttachments() {
   if (attachedFiles.length === 0) {
