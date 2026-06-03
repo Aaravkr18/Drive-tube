@@ -35,6 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  const heroStartBtn = document.getElementById('hero-start-btn');
+  if (heroStartBtn) {
+    heroStartBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (typeof auth !== 'undefined' && auth.currentUser) {
+        landingNavigateTo('/chat.html');
+      } else {
+        openAuthModal();
+      }
+    });
+  }
+
   // Fade in on load — start fully opaque then fade to transparent
   const overlay = document.getElementById('page-overlay');
   if (overlay) {

@@ -222,7 +222,7 @@ auth.onAuthStateChanged((user) => {
     }
   } else {
     // Signed out — redirect to home (modal will handle sign-in)
-    if (currentPage === '/chat.html') {
+    if (currentPage === '/chat.html' || currentPage === '/chat') {
       navigateTo('/index.html');
     }
   }

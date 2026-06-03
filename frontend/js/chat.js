@@ -741,8 +741,12 @@ async function loadSession(id) {
       for (const block of msg.content) {
         if (block.type === "image_url" && block.image_url.url.startsWith("db:")) {
           const imgId = block.image_url.url.split("db:")[1];
-          const realUrl = await getFromDB("attachments", imgId);
-          if (realUrl) block.image_url.url = realUrl;
+          try {
+            const realUrl = await getFromDB("attachments", imgId);
+            if (realUrl) block.image_url.url = realUrl;
+          } catch (dbErr) {
+            console.error("Failed to load attachment from DB:", dbErr);
+          }
         }
       }
     }
@@ -791,8 +795,12 @@ async function loadSession(id) {
   // Lazy load images from DB for user bubbles
   document.querySelectorAll(".lazy-db-img").forEach(async img => {
     if (img.dataset.dbId) {
-      const data = await getFromDB("attachments", img.dataset.dbId);
-      if (data) img.src = data;
+      try {
+        const data = await getFromDB("attachments", img.dataset.dbId);
+        if (data) img.src = data;
+      } catch (dbErr) {
+        console.error("Failed to lazy load attachment:", dbErr);
+      }
       img.classList.remove("lazy-db-img");
     }
   });
@@ -1949,10 +1957,18 @@ let artifactCounter = 0;
 function renderMarkdown(text, isStreaming = false) {
   if (!text) return "";
 
-  // ── Step 1: Extract LaTeX blocks BEFORE escaping ──
+  // ── Step 1: Extract CODE BLOCKS before escaping ──
+  const codeBlocks = [];
+  let processed = text;
+  processed = processed.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push({ lang: lang || "", code: code.trimEnd() });
+    return `%%CODE_BLOCK_${idx}%%`;
+  });
+
+  // ── Step 1b: Extract LaTeX blocks BEFORE escaping ──
   // We protect them from HTML escaping by replacing with placeholders
   const mathBlocks = [];
-  let processed = text;
 
   // Block math: $$...$$ (can be multiline)
   processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
@@ -1980,14 +1996,6 @@ function renderMarkdown(text, isStreaming = false) {
     const idx = mathBlocks.length;
     mathBlocks.push({ math: math.trim(), display: false });
     return `%%MATH_BLOCK_${idx}%%`;
-  });
-
-  // ── Step 1b: Extract CODE BLOCKS before escaping ──
-  const codeBlocks = [];
-  processed = processed.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-    const idx = codeBlocks.length;
-    codeBlocks.push({ lang: lang || "", code: code.trimEnd() });
-    return `%%CODE_BLOCK_${idx}%%`;
   });
 
   // ── Step 1c: Handle INCOMPLETE code blocks (still streaming) ──
@@ -2025,59 +2033,6 @@ function renderMarkdown(text, isStreaming = false) {
       <span style="color:rgba(185,202,203,0.7); font-size:13px;">Writing ${lang} code...</span>
     </div>
   `);
-
-  // Restore code blocks from placeholders
-  html = html.replace(/%%CODE_BLOCK_(\d+)%%/g, (_, idx) => {
-    const block = codeBlocks[parseInt(idx)];
-    if (!block) return "";
-    const langLabel = block.lang || "code";
-    const isHtml = langLabel.toLowerCase() === "html";
-    const escapedCodeForDisplay = escapeHtml(block.code);
-
-    if (isHtml) {
-      // Only store in artifact map during final render (not streaming)
-      if (!isStreaming) {
-        const artifactId = 'artifact_' + (artifactCounter++);
-        artifactStore.set(artifactId, block.code);
-        // Also save to IndexedDB for cross-session persistence
-        saveToDB("artifacts", artifactId, block.code);
-        return `
-          <div class="artifact-card" data-artifact-id="${artifactId}" style="background:rgba(0,219,233,0.05); border:1px solid rgba(0,219,233,0.2); border-radius:12px; padding:16px; margin:12px 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-          <div style="display:flex; align-items:center; gap:12px;">
-            <div style="width:40px; height:40px; background:rgba(0,219,233,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center;">
-              <span class="material-symbols-outlined" style="color:#00dbe9; font-size:22px;">web</span>
-            </div>
-            <div>
-              <h4 style="margin:0; color:#dbfcff; font-size:15px; font-weight:600;">Interactive Web App</h4>
-              <p style="margin:0; color:rgba(185,202,203,0.7); font-size:12px;">HTML / CSS / JS</p>
-            </div>
-          </div>
-          <button onclick="previewCode(this)" class="glass-btn-heavy" style="background:linear-gradient(135deg, #00dbe9, #006970); color:#002022; border:none; padding:8px 16px; border-radius:20px; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:transform 0.15s, box-shadow 0.25s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 15px rgba(0,219,233,0.25)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
-            <span class="material-symbols-outlined" style="font-size:18px;">play_arrow</span> Open Preview
-          </button>
-        </div>
-      `;
-      } else {
-        // During streaming, show a completed-but-non-interactive card
-        return `
-          <div class="artifact-card" style="background:rgba(0,219,233,0.05); border:1px solid rgba(0,219,233,0.2); border-radius:12px; padding:16px; margin:12px 0; display:flex; align-items:center; gap:12px;">
-            <div style="display:flex; align-items:center; gap:12px;">
-              <div style="width:40px; height:40px; background:rgba(0,219,233,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center;">
-                <span class="material-symbols-outlined" style="color:#00dbe9; font-size:22px;">check_circle</span>
-              </div>
-              <div>
-                <h4 style="margin:0; color:#dbfcff; font-size:15px; font-weight:600;">Web App Ready</h4>
-                <p style="margin:0; color:rgba(185,202,203,0.7); font-size:12px;">Preview available when generation completes</p>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    // Standard code block for other languages — (#6) use hljs class
-    return `<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang-label">${langLabel}</span><div style="display:flex;"><button class="copy-code-btn" onclick="copyCode(this)"><span class="material-symbols-outlined" style="font-size:14px;">content_copy</span> Copy</button></div></div><pre><code class="hljs language-${block.lang}">${escapedCodeForDisplay}</code></pre></div>`;
-  });
 
   // (#5) Markdown Table Rendering
   html = html.replace(/((?:^\|.+\|\s*(?:<br>|\n))+)/gm, (tableBlock) => {
@@ -2132,6 +2087,59 @@ function renderMarkdown(text, isStreaming = false) {
   html = html.replace(/\n/g, "<br>");
   html = `<p>${html}</p>`;
   html = html.replace(/<p>\s*<\/p>/g, "");
+
+  // Restore code blocks from placeholders at the very end to avoid markdown mangling inside them
+  html = html.replace(/%%CODE_BLOCK_(\d+)%%/g, (_, idx) => {
+    const block = codeBlocks[parseInt(idx)];
+    if (!block) return "";
+    const langLabel = block.lang || "code";
+    const isHtml = langLabel.toLowerCase() === "html";
+    const escapedCodeForDisplay = escapeHtml(block.code);
+
+    if (isHtml) {
+      // Only store in artifact map during final render (not streaming)
+      if (!isStreaming) {
+        const artifactId = 'artifact_' + (artifactCounter++);
+        artifactStore.set(artifactId, block.code);
+        // Also save to IndexedDB for cross-session persistence
+        saveToDB("artifacts", artifactId, block.code);
+        return `
+          <div class="artifact-card" data-artifact-id="${artifactId}" style="background:rgba(0,219,233,0.05); border:1px solid rgba(0,219,233,0.2); border-radius:12px; padding:16px; margin:12px 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; background:rgba(0,219,233,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center;">
+              <span class="material-symbols-outlined" style="color:#00dbe9; font-size:22px;">web</span>
+            </div>
+            <div>
+              <h4 style="margin:0; color:#dbfcff; font-size:15px; font-weight:600;">Interactive Web App</h4>
+              <p style="margin:0; color:rgba(185,202,203,0.7); font-size:12px;">HTML / CSS / JS</p>
+            </div>
+          </div>
+          <button onclick="previewCode(this)" class="glass-btn-heavy" style="background:linear-gradient(135deg, #00dbe9, #006970); color:#002022; border:none; padding:8px 16px; border-radius:20px; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:transform 0.15s, box-shadow 0.25s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 15px rgba(0,219,233,0.25)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+            <span class="material-symbols-outlined" style="font-size:18px;">play_arrow</span> Open Preview
+          </button>
+        </div>
+      `;
+      } else {
+        // During streaming, show a completed-but-non-interactive card
+        return `
+          <div class="artifact-card" style="background:rgba(0,219,233,0.05); border:1px solid rgba(0,219,233,0.2); border-radius:12px; padding:16px; margin:12px 0; display:flex; align-items:center; gap:12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="width:40px; height:40px; background:rgba(0,219,233,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                <span class="material-symbols-outlined" style="color:#00dbe9; font-size:22px;">check_circle</span>
+              </div>
+              <div>
+                <h4 style="margin:0; color:#dbfcff; font-size:15px; font-weight:600;">Web App Ready</h4>
+                <p style="margin:0; color:rgba(185,202,203,0.7); font-size:12px;">Preview available when generation completes</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Standard code block for other languages — (#6) use hljs class
+    return `<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang-label">${langLabel}</span><div style="display:flex;"><button class="copy-code-btn" onclick="copyCode(this)"><span class="material-symbols-outlined" style="font-size:14px;">content_copy</span> Copy</button></div></div><pre><code class="hljs language-${block.lang}">${escapedCodeForDisplay}</code></pre></div>`;
+  });
 
   // ── Step 3: Render LaTeX placeholders with KaTeX ──
   html = html.replace(/%%MATH_BLOCK_(\d+)%%/g, (_, idx) => {
@@ -2937,7 +2945,13 @@ window.previewCode = async function(btn) {
   if (!artifactId) return;
 
   let rawCode = artifactStore.get(artifactId);
-  if (!rawCode) rawCode = await getFromDB("artifacts", artifactId);
+  if (!rawCode) {
+    try {
+      rawCode = await getFromDB("artifacts", artifactId);
+    } catch (dbErr) {
+      console.error("Failed to retrieve artifact from DB:", dbErr);
+    }
+  }
   if (!rawCode) { showToast("Code not available. Please regenerate.", "error"); return; }
 
   openCanvasPanel("Web App", "Ready · HTML / CSS / JS");

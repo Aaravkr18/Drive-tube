@@ -22,7 +22,7 @@ admin.initializeApp({
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
-app.use(express.static(path.join(__dirname, "../frontend")));
+app.use(express.static(path.join(__dirname, "../frontend"), { extensions: ["html"] }));
 
 // ── Simple Rate Limiter (in-memory) ──
 const rateLimitMap = new Map();
@@ -457,6 +457,11 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
 // ── Token Verification Endpoint ──
 app.post("/api/verify-token", verifyFirebaseToken, (req, res) => {
   res.json({ valid: true, uid: req.user.uid, email: req.user.email });
+});
+
+// ── API Fallback: Return 404 for undefined API routes ──
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ error: "API route not found" });
 });
 
 // ── Fallback: Serve index.html ──
