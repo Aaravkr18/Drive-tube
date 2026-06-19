@@ -459,12 +459,17 @@ app.post("/api/verify-token", verifyFirebaseToken, (req, res) => {
   res.json({ valid: true, uid: req.user.uid, email: req.user.email });
 });
 
+// ── Login route: redirect to index.html (modal is embedded there) ──
+app.get(["/login", "/login.html"], (req, res) => {
+  res.redirect(301, "/");
+});
+
 // ── API Fallback: Return 404 for undefined API routes ──
 app.all("/api/*", (req, res) => {
   res.status(404).json({ error: "API route not found" });
 });
 
-// ── Fallback: Serve index.html ──
+// ── Fallback: Serve index.html for any unmatched routes ──
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend", "index.html"));
 });

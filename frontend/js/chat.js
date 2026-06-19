@@ -163,7 +163,7 @@ async function getFromDB(storeName, id) {
 // ── Auth Guard + User Info ──
 auth.onAuthStateChanged((user) => {
   if (!user) {
-    window.location.href = "/";
+    window.location.href = "/index.html";
     return;
   }
   if (userNameEl) userNameEl.textContent = user.displayName || user.email?.split("@")[0] || "User";
@@ -3075,7 +3075,7 @@ if (micBtn) {
       console.error("Speech recognition error", event.error);
       isRecording = false;
       micBtn.classList.remove("recording");
-      chatInput.placeholder = "Ask Aura";
+      chatInput.placeholder = "Message Aura...";
       if (event.error !== 'no-speech') {
         let errorMsg = "Microphone error: " + event.error;
         if (event.error === 'not-allowed') {
@@ -3090,7 +3090,7 @@ if (micBtn) {
     recognition.onend = () => {
       isRecording = false;
       micBtn.classList.remove("recording");
-      chatInput.placeholder = "Ask Aura";
+      chatInput.placeholder = "Message Aura...";
     };
 
     micBtn.addEventListener("click", () => {

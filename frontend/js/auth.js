@@ -215,14 +215,15 @@ auth.onAuthStateChanged((user) => {
     // Only redirect to chat if the user explicitly signed in (not on passive session restore)
     if (explicitLoginAttempt) {
       sessionStorage.removeItem('synapse_new_user');
+      explicitLoginAttempt = false; // reset to prevent double-redirect on token refresh
 
-      if (currentPage === '/' || currentPage === '/index.html' || currentPage === '/login.html') {
+      if (currentPage === '/' || currentPage === '/index.html' || currentPage === '/login.html' || currentPage === '') {
         navigateTo('/chat.html');
       }
     }
   } else {
     // Signed out — redirect to home (modal will handle sign-in)
-    if (currentPage === '/chat.html' || currentPage === '/chat') {
+    if (currentPage === '/chat.html' || currentPage === '/chat' || currentPage.endsWith('/chat.html') || currentPage.endsWith('/chat')) {
       navigateTo('/index.html');
     }
   }
