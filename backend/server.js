@@ -110,9 +110,16 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
 
   let targetModel = model || "minimax/minimax-m2.7";
 
-  // Safety Redirect: If old Kimi or Mistral model is requested, force it to Minimax
-  if (targetModel === "moonshotai/kimi-k2.6" || targetModel === "mistralai/mistral-small-4-119b-2603") {
-    targetModel = "minimax/minimax-m2.7";
+  // Safety Redirect: migrate any old model IDs to current equivalents
+  const modelMigrationMap = {
+    "moonshotai/kimi-k2.6": "minimax/minimax-m2.7",
+    "mistralai/mistral-small-4-119b-2603": "minimax/minimax-m2.7",
+    "nvidia/llama-3.1-nemotron-ultra-253b-v1": "minimax/minimax-m2.7",
+    "meta/llama-3.3-70b-instruct": "openai/gpt-oss-120b",
+    "qwen/qwen2.5-coder-32b-instruct": "minimax/minimax-3",
+  };
+  if (modelMigrationMap[targetModel]) {
+    targetModel = modelMigrationMap[targetModel];
   }
 
   // Check if user is requesting to generate an image
@@ -132,42 +139,20 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
 
   // 1. Determine final targetModel based on media types
   if (hasImage) {
-    targetModel = "mistralai/mistral-large-3-675b-instruct-2512";
+    targetModel = "microsoft/phi-4-multimodal-instruct";
     console.log(`[VISION] Image detected — routing to ${targetModel}`);
   } else if (hasAudioVideo) {
     targetModel = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
     console.log(`[AUDIO/VIDEO] Audio/Video detected — routing to ${targetModel}`);
   }
 
-  // 2. Assign baseURL and activeApiKey based on the final targetModel
-  // By default, assume NVIDIA API endpoint unless overridden per-model
-  let baseURL = process.env.NVIDIA_BASE_URL || process.env.AI_BASE_URL || "https://integrate.api.nvidia.com/v1";
-  let activeApiKey = null;
-
-  if (targetModel.includes("minimax")) {
-    baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-    activeApiKey = process.env.OPENROUTER_API_KEY || process.env.DEFAULT_API_KEY;
-  } else if (targetModel.includes("openai/gpt-oss-120b")) {
-    baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-    activeApiKey = process.env.GPT_OSS_120B_API_KEY || process.env.OPENROUTER_API_KEY || process.env.DEFAULT_API_KEY;
-  } else if (targetModel.includes("mistral-small")) {
-    activeApiKey = process.env.MISTRAL_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
-  } else if (targetModel === "stepfun-ai/step-3.5-flash") {
-    activeApiKey = process.env.STEP_FLASH_API_KEY;
-  } else if (targetModel === "qwen-image") {
-    activeApiKey = process.env.QWEN_API_KEY || process.env.DEFAULT_API_KEY;
-  } else if (targetModel === "mistralai/mistral-large-3-675b-instruct-2512") {
-    activeApiKey = process.env.VISION_API_KEY || process.env.DEFAULT_API_KEY;
-  } else if (targetModel === "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning") {
-    activeApiKey = process.env.AUDIO_VIDEO_API_KEY || process.env.NVIDIA_API_KEY || process.env.DEFAULT_API_KEY;
-  } else {
-    // Default fallback if unsupported model passed
-    activeApiKey = process.env.DEFAULT_API_KEY;
-  }
+  // 2. All models route through NVIDIA API — single key for everything
+  const baseURL = process.env.NVIDIA_BASE_URL || process.env.AI_BASE_URL || "https://integrate.api.nvidia.com/v1";
+  const activeApiKey = process.env.NVIDIA_API_KEY;
 
   if (!activeApiKey) {
-    console.error(`[ERROR] Missing API Key for model: ${targetModel}`);
-    return res.status(400).json({ error: "Missing API Key for the selected model. Please configure your .env file." });
+    console.error(`[ERROR] Missing NVIDIA_API_KEY in .env`);
+    return res.status(400).json({ error: "NVIDIA_API_KEY is not set. Please add it to your .env file and restart the server." });
   }
 
   const activeAiClient = new OpenAI({
@@ -240,10 +225,6 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       systemPromptText += "\n\n[MULTIMODAL MODE ACTIVE] You can hear audio and see video. Analyze the media carefully and answer based on its content while maintaining your persona.";
     }
 
-    // Only inject <think> prompt for models that use inline think-tags (not native reasoning_content)
-    if (targetModel.includes("mistral-small")) {
-      systemPromptText += "\n\nCRITICAL: You MUST perform deep reasoning before answering. Wrap your entire internal thought process inside <think>...</think> tags, followed by your final response. This is mandatory for your operation.";
-    }
     // NOTE: minimax/minimax-m2.7 uses native reasoning_content — no prompt injection needed.
 
 
@@ -276,38 +257,40 @@ app.post("/api/chat", verifyFirebaseToken, rateLimit, async (req, res) => {
       max_tokens: 4096,
     };
 
-    // Specialized Parameters for Mistral Large 3 Vision
-    if (targetModel === "mistralai/mistral-large-3-675b-instruct-2512") {
+    // Specialized Parameters for Phi-4 Multimodal (Vision)
+    if (targetModel === "microsoft/phi-4-multimodal-instruct") {
       params.max_tokens = 2048;
       params.temperature = 0.15;
       params.top_p = 1.0;
     }
 
-    // Specialized Parameters for Mistral Small & Qwen 3.5
-    // Keep max_tokens at 8192 — context limit safety for NVIDIA endpoint
-    if (targetModel.includes("mistral-small") || targetModel === "qwen/qwen3.5-122b-a10b") {
+    // Specialized Parameters for Minimax m2.7 (Aura 1 Deep Think)
+    // Cap context to avoid hitting token limits
+    if (targetModel === "minimax/minimax-m2.7") {
       params.max_tokens = 8192;
-      // Truncate history to last 20 messages to keep input tokens well under budget
-      if (params.messages.length > 22) { // 22 = system + 20 history + 1 current
+      if (params.messages.length > 22) {
         params.messages = [
-          params.messages[0], // keep system prompt
-          ...params.messages.slice(-21) // keep last 21 (20 history + 1 current user msg)
+          params.messages[0],
+          ...params.messages.slice(-21)
         ];
       }
+    }
+
+    // Specialized Parameters for Minimax 3 (Aura Coder)
+    if (targetModel === "minimax/minimax-3") {
+      params.max_tokens = 16384;
+      params.top_p = 0.9;
     }
 
     // Specialized Parameters for Nemotron Omni (Audio/Video)
     if (targetModel === "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning") {
       // Disable reasoning to make the model respond faster
-      params.reasoning_budget = 0;
-      params.chat_template_kwargs = { "enable_thinking": false, "clear_thinking": true };
+      // These are non-standard params — must go in extra_body for NVIDIA's OpenAI-compatible API
+      params.extra_body = {
+        reasoning_budget: 0,
+        chat_template_kwargs: { enable_thinking: false, clear_thinking: true }
+      };
       params.max_tokens = 4096;
-    }
-
-    // Specialized Parameters for Step-Flash (Aura Coder)
-    if (targetModel === "stepfun-ai/step-3.5-flash") {
-      params.max_tokens = 16384;
-      params.top_p = 0.9;
     }
 
     const stream = await activeAiClient.chat.completions.create(params);

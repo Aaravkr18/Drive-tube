@@ -48,11 +48,15 @@ let isStreaming = false;
 let currentChatId = generateId();
 let attachedFiles = []; // Array of { filename, mimeType, data, isImage, size }
 let currentModel = localStorage.getItem("selected_model") || "minimax/minimax-m2.7";
-// Migration: If user has old Kimi or Mistral model in local storage, force update it to Minimax
-if (currentModel === "moonshotai/kimi-k2.6" || currentModel === "mistralai/mistral-small-4-119b-2603") {
-  currentModel = "minimax/minimax-m2.7";
+// Migration: If user has old model IDs in local storage, migrate them to NVIDIA equivalents
+const _modelMigration = {
+  "nvidia/llama-3.1-nemotron-ultra-253b-v1": "minimax/minimax-m2.7",
+  "meta/llama-3.3-70b-instruct": "openai/gpt-oss-120b",
+  "qwen/qwen2.5-coder-32b-instruct": "minimax/minimax-3",
+};
+if (_modelMigration[currentModel]) {
+  currentModel = _modelMigration[currentModel];
   localStorage.setItem("selected_model", currentModel);
-  localStorage.setItem("aura1_mode", "deep_think"); // Reset toggle to Deep Think for new default
 }
 let currentModelName = localStorage.getItem("selected_model_name") || "Aura 1";
 let abortController = null; // For stopping generation
@@ -114,7 +118,7 @@ updateAura1ToggleUI();
 
 // ── Helpers ──
 function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
 // ── IndexedDB Helper (for persistent images & artifacts) ──
@@ -651,7 +655,7 @@ function saveSession() {
           ...msg,
           content: msg.content.map(block => {
             if (block.type === 'image_url' && block.image_url?.url?.startsWith('data:')) {
-              const imgId = `img_${currentChatId}_${Math.random().toString(36).substr(2, 9)}`;
+              const imgId = `img_${currentChatId}_${Math.random().toString(36).substring(2, 11)}`;
               saveToDB("attachments", imgId, block.image_url.url);
               return { type: 'image_url', image_url: { url: `db:${imgId}` } };
             }
@@ -1524,8 +1528,10 @@ async function getAuraResponse(multimodalState = {}) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let streamDone = false;
 
     while (true) {
+      if (streamDone) break;
       const { done, value } = await reader.read();
       if (done) break;
 
@@ -1545,10 +1551,14 @@ async function getAuraResponse(multimodalState = {}) {
             fullContent += `\n\n⚠️ ${data.error}`;
             const errAnswerEl = bubbleEl.querySelector(".answer-content");
             if (errAnswerEl) errAnswerEl.innerHTML = renderMarkdown(fullContent);
+            streamDone = true;
             break;
           }
 
-          if (data.done) break;
+          if (data.done) {
+            streamDone = true;
+            break;
+          }
 
           if (data.reasoning && currentModelName !== "Aura 2") {
             fullReasoning += data.reasoning;
@@ -1691,10 +1701,27 @@ async function getAuraResponse(multimodalState = {}) {
       // Check if error was already partially handled in stream
       const lastAiBubble = chatMessages.querySelector(".message-row.ai:last-child .ai-bubble");
       if (!lastAiBubble || lastAiBubble.textContent === "") {
-          appendMessage(
-            "ai",
-            "⚠️ I'm having trouble connecting right now. Please check your connection and try again."
-          );
+        // Show a specific message based on the error type
+        let errorMsg;
+        const msg = err.message || "";
+        if (msg === "Not authenticated") {
+          errorMsg = "⚠️ You are not signed in. Please refresh the page and sign in again.";
+        } else if (err instanceof TypeError && (msg.includes("fetch") || msg.includes("Failed to fetch") || msg.includes("NetworkError"))) {
+          // True network error — server is likely not running
+          errorMsg = "⚠️ Cannot reach the server. Make sure the backend is running (`npm start` in the backend folder) and try again.";
+        } else if (msg.startsWith("Server error: 401") || msg.includes("Unauthorized")) {
+          errorMsg = "⚠️ Authentication failed. Please refresh the page and sign in again.";
+        } else if (msg.startsWith("Server error: 429")) {
+          errorMsg = "⚠️ Rate limit exceeded. Please wait a moment and try again.";
+        } else if (msg.startsWith("Server error: 400") || msg.includes("Missing API Key") || msg.includes("API Key")) {
+          errorMsg = `⚠️ API key not configured. Please add your API keys to the backend \`.env\` file and restart the server.`;
+        } else if (msg && !msg.startsWith("Server error:")) {
+          // Real descriptive error from the server
+          errorMsg = `⚠️ ${msg}`;
+        } else {
+          errorMsg = "⚠️ I'm having trouble connecting right now. Please check your connection and try again.";
+        }
+        appendMessage("ai", errorMsg);
       }
       setOrbState('error');
     }
@@ -2487,10 +2514,15 @@ function exportCurrentChat() {
     const bubbleClass = isAI ? 'ai-msg' : 'user-msg';
 
     // Convert markdown to simple HTML for PDF
-    let htmlContent = escapeHtml(content)
-      // Code blocks
-      .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-        `<pre class="code-block"><code>${code.trimEnd()}</code></pre>`)
+    // Step 1: Extract code blocks BEFORE escaping so their content isn't double-escaped
+    const pdfCodeBlocks = [];
+    let pdfContent = content.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+      const idx = pdfCodeBlocks.length;
+      pdfCodeBlocks.push(escapeHtml(code.trimEnd()));
+      return `%%PDF_CODE_${idx}%%`;
+    });
+    // Now escape the rest (non-code content)
+    let htmlContent = escapeHtml(pdfContent)
       // Inline code
       .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
       // Bold
@@ -2509,6 +2541,11 @@ function exportCurrentChat() {
       // Line breaks
       .replace(/\n\n/g, '</p><p>')
       .replace(/\n/g, '<br>');
+    // Restore code blocks with properly escaped content
+    htmlContent = htmlContent.replace(/%%PDF_CODE_(\d+)%%/g, (_, idx) =>
+      `<pre class="code-block"><code>${pdfCodeBlocks[parseInt(idx)]}</code></pre>`
+    );
+
 
     messagesHtml += `
       <div class="message ${bubbleClass}">
